@@ -194,3 +194,9 @@ This project is open source. Feel free to modify and distribute according to you
 ## Contributing
 
 Feel free to submit issues, feature requests, or pull requests to improve ProxPad.
+
+## Support the project
+[![Donate](https://storage.ko-fi.com/cdn/fullLogoKofi.png)](https://ko-fi.com/yurymonzon)
+
+If you found this project useful, consider supporting my work with a small donation: https://ko-fi.com/yurymonzon Your support is greatly appreciated!
+
