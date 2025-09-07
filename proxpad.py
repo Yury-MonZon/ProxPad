@@ -1,0 +1,648 @@
+from flask import Flask, jsonify, render_template_string
+from proxmoxer import ProxmoxAPI
+import config
+
+app = Flask(__name__)
+
+# Use API token authentication with privilege separation detection
+try:
+    print(f"Attempting connection to: {config.PROXMOX_HOST}")
+    
+    proxmox = ProxmoxAPI(
+        config.PROXMOX_HOST,
+        user=config.PROXMOX_USER,
+        token_name=config.PROXMOX_TOKEN_ID,
+        token_value=config.PROXMOX_TOKEN_SECRET,
+        verify_ssl=config.VERIFY_SSL
+    )
+    
+    # Test the connection
+    version = proxmox.version.get()
+    print(f"Successfully connected! Proxmox version: {version}")    # Test for privilege separation issue
+    try:
+        nodes = proxmox.nodes.get()
+        if nodes:
+            # Try to access VM info to test permissions
+            test_node = nodes[0]['node']
+            try:
+                vm_list = proxmox.nodes(test_node).qemu.get()
+                print(f"VM access test: Successfully read {len(vm_list)} VMs")
+                
+                if len(vm_list) == 0:
+                    print("⚠️  TOKEN PERMISSION ISSUE: No VMs visible")
+                    print("Token needs VM.Audit permissions or proper resource assignments.")
+                    print("Please check token permissions in Proxmox and ensure 'Privilege Separation' is disabled.")
+                    exit(1)
+                
+                # Check if we can see any of our configured VMs
+                configured_vms = config.VM_IDS
+                visible_vm_ids = [vm['vmid'] for vm in vm_list]
+                missing_vms = [vmid for vmid in configured_vms if vmid not in visible_vm_ids]
+                
+                if missing_vms:
+                    print(f"⚠️  TOKEN PERMISSION ISSUE: Cannot see configured VMs {missing_vms}")
+                    print("Token needs VM.Audit or VM.PowerMgmt permissions for these VMs.")
+                    print("Please check token permissions in Proxmox.")
+                    exit(1)
+                    
+            except Exception as perm_error:
+                print(f"⚠️  PRIVILEGE SEPARATION DETECTED: {perm_error}")
+                print("This token can connect but cannot read VM data.")
+                print("Please disable 'Privilege Separation' in the Proxmox token settings.")
+                exit(1)
+    except Exception as node_error:
+        print(f"Node access test failed: {node_error}")
+        exit(1)
+    
+except Exception as e:
+    print(f"Connection failed: {e}")
+    print("Please check:")
+    print("1. Token exists in Proxmox")
+    print("2. Privilege Separation is DISABLED for the token")
+    print("3. Token has correct permissions")
+    raise
+
+VM_IDS = config.VM_IDS
+SHY = config.SHY
+
+def format_ram(ram_bytes):
+    gb = ram_bytes / (1024 ** 3)
+    return max(round(gb, 2), 0)
+
+@app.route('/')
+def index():
+    node = proxmox.nodes.get()[0]['node']
+    vms = []
+    for vmid in VM_IDS:
+        try:
+            status = proxmox.nodes(node).qemu(vmid).status.current.get()
+            config_vm = proxmox.nodes(node).qemu(vmid).config.get()
+            name = config_vm.get('name', f'VM {vmid}')
+            vm_status = status.get('status', 'unknown')
+            ram_gb = format_ram(status.get('mem', 0)) if vm_status == 'running' else None
+            cpu_percent = round(status.get('cpu', 0) * 100, 1) if vm_status == 'running' else None
+            vms.append({'vmid': vmid, 'name': name, 'status': vm_status, 'ram_gb': ram_gb, 'cpu_percent': cpu_percent})
+        except Exception:
+            vms.append({'vmid': vmid, 'name': f'VM {vmid}', 'status': 'error', 'ram_gb': None, 'cpu_percent': None})
+
+    return render_template_string("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>Proxmox VM Controls</title>
+<style>
+  /* Proxmox dark theme colors - more toned down */
+  :root {
+    --bg-primary: #1a1a1a;
+    --text-primary: #d0d0d0;
+    --text-secondary: #a0a0a0;
+    --surface-primary: #2a2a2a;
+    --surface-border: #404040;
+    --button-bg: #2a2a2a;
+    --button-border: #404040;
+    --button-text: #d0d0d0;
+    /* Button Colors - Proxmox style but more dimmed */
+    --start-bg: #1a5a2a;
+    --start-border: #134320;
+    --start-text: #1a1a1a;
+    --stop-bg: #8f252e;
+    --stop-border: #7a1f26;
+    --stop-text: #1a1a1a;
+    --reset-bg: #b08505;
+    --reset-border: #9a7200;
+    --reset-text: #1a1a1a;
+    --shutdown-bg: #4a5056;
+    --shutdown-border: #3a4046;
+    --shutdown-text: #1a1a1a;
+    --reboot-bg: #004287;
+    --reboot-border: #003570;
+    --reboot-text: #1a1a1a;
+  }
+  
+  html, body {
+    margin: 0; padding: 0; 
+    height: 100vh; height: 100dvh;
+    width: 100vw;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    position: fixed;
+    top: 0; left: 0;
+  }
+  #container {
+    box-sizing: border-box;
+    width: 100vw;
+    height: 100vh; height: 100dvh; /* Use dynamic viewport height if supported */
+    margin: 0; padding: 2px;
+    display: grid;
+    gap: 2px;
+    overflow: hidden;
+    align-items: stretch;
+    position: absolute;
+    top: 0; left: 0;
+  }
+  /* Dynamic grid layout - will be set by JavaScript */
+  @media (orientation: portrait) {
+    #container {
+      height: calc(100vh - 4px); /* Account for padding */
+      height: calc(100dvh - 4px); /* Use dynamic viewport if supported */
+    }
+  }
+  /* Landscape mode */
+  @media (orientation: landscape) {
+    #container {
+      height: calc(100vh - 4px); /* Account for padding */
+      height: calc(100dvh - 4px); /* Use dynamic viewport if supported */
+    }
+  }
+  .vm-block {
+    background: var(--surface-primary);
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    padding: 3px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+  .vmstatus {
+    flex: 0 0 auto;
+    font-weight: bold;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+    user-select: none;
+  }
+  .vm-title {
+    font-weight: bold;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .usage {
+    font-weight: normal;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .button-grid {
+    flex: 1 1 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    gap: 2px;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .button-row {
+    display: grid;
+    gap: 2px;
+    height: 100%;
+    width: 100%;
+  }
+  button {
+    background: var(--button-bg);
+    color: var(--button-text);
+    border: 1px solid var(--button-border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    width: 100%;
+    min-height: 0;
+    min-width: 0;
+    height: 100%;
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    user-select: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  }
+  button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    filter: brightness(1.15);
+  }
+  button:active {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+  }
+  button.start { 
+    background: var(--start-bg);
+    border: 1px solid var(--start-border);
+    color: var(--start-text);
+  }
+  button.stop { 
+    background: var(--stop-bg);
+    border: 1px solid var(--stop-border);
+    color: var(--stop-text);
+  }
+  button.reset { 
+    background: var(--reset-bg);
+    border: 1px solid var(--reset-border);
+    color: var(--reset-text);
+  }
+  button.shutdown { 
+    background: var(--shutdown-bg);
+    border: 1px solid var(--shutdown-border);
+    color: var(--shutdown-text);
+  }
+  button.reboot { 
+    background: var(--reboot-bg);
+    border: 1px solid var(--reboot-border);
+    color: var(--reboot-text);
+  }
+  button span {
+    font-size: 16px;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+  .icon {
+    width: 32px;
+    height: 32px;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+    color: inherit; /* Ensure icons inherit button text color */
+  }
+  
+  /* Landscape mode optimizations - Mobile phones */
+  @media (orientation: landscape) and (max-height: 600px) {
+    .vm-block {
+      padding: 1px;
+    }
+    .vmstatus {
+      font-size: 0.75rem;
+      margin-bottom: 1px;
+    }
+    .usage {
+      font-size: 0.65rem;
+    }
+    
+    /* Force equal height for all button rows */
+    .button-grid {
+      gap: 1px;
+    }
+    
+    /* Make all buttons same height by using flexbox */
+    .button-grid[style*="repeat(3, 1fr)"] {
+      display: flex !important;
+      flex-direction: column !important;
+      height: 100% !important;
+    }
+    
+    .button-grid[style*="repeat(3, 1fr)"] > button,
+    .button-grid[style*="repeat(3, 1fr)"] > .button-row {
+      flex: 1 !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
+    
+    .button-row {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 1px !important;
+    }
+    
+    button {
+      padding: 2px 4px !important;
+      gap: 1px !important;
+      font-size: 10px !important;
+      min-height: 0 !important;
+      height: 100% !important;
+    }
+    
+    button span {
+      font-size: 8px !important;
+      margin-top: 1px !important;
+    }
+    
+    .icon {
+      width: 14px !important;
+      height: 14px !important;
+    }
+  }
+  
+  /* Very small screens */
+  @media (max-width: 480px) {
+    button span {
+      font-size: 12px;
+    }
+    .icon {
+      width: 24px;
+      height: 24px;
+    }
+    button {
+      padding: 6px 4px;
+      gap: 4px;
+    }
+  }
+  }
+</style>
+</head>
+<body>
+<div id="container" role="main" aria-label="Proxmox VM Controls">
+  {% for vm in vms %}
+  <section class="vm-block" id="vm-{{ vm.vmid }}" aria-labelledby="vm-label-{{ vm.vmid }}">
+    <div id="vm-label-{{ vm.vmid }}" class="vmstatus" aria-live="polite">
+      <div class="vm-title">{{ vm.name }} ({{ vm.vmid }})</div>
+      {% if vm.status == 'running' and vm.ram_gb is not none and vm.cpu_percent is not none %}
+        <div class="usage">{{ vm.cpu_percent }}% CPU {{ vm.ram_gb }} GB RAM</div>
+      {% elif vm.status == 'stopped' %}
+        <div class="usage">Stopped</div>
+      {% endif %}
+    </div>
+    <div class="button-grid" style="grid-template-columns: 1fr; grid-template-rows: {% if vm.status == 'running' %}repeat(3, 1fr){% else %}1fr{% endif %};">
+      <button id="start-{{ vm.vmid }}" class="start" onclick="confirmAction({{ vm.vmid }}, 'start')" aria-label="Start VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}none{% else %}flex{% endif %};">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <span>Start</span>
+      </button>
+      <button id="shutdown-{{ vm.vmid }}" class="shutdown" onclick="confirmAction({{ vm.vmid }}, 'shutdown')" aria-label="Shutdown VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %};">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16.56 5.44L15.11 6.89C16.84 7.94 18 9.83 18 12A6 6 0 0 1 6 12C6 9.83 7.16 7.94 8.88 6.88L7.44 5.44C5.36 6.88 4 9.28 4 12A8 8 0 0 0 20 12C20 9.28 18.64 6.88 16.56 5.44M13 3H11V13H13"/>
+        </svg>
+        <span>Shutdown</span>
+      </button>
+      <button id="reboot-{{ vm.vmid }}" class="reboot" onclick="confirmAction({{ vm.vmid }}, 'reboot')" aria-label="Reboot VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %};">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+        </svg>
+        <span>Reboot</span>
+      </button>
+      <div class="button-row" style="display: {% if vm.status == 'running' %}grid{% else %}none{% endif %}; grid-template-columns: 1fr 1fr; gap: 2px; height: 100%;">
+        <button id="stop-{{ vm.vmid }}" class="stop" onclick="confirmAction({{ vm.vmid }}, 'stop')" aria-label="Stop VM {{ vm.vmid }}" style="height: 100%;">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h12v12H6z"/>
+          </svg>
+          <span>Stop</span>
+        </button>
+        <button id="reset-{{ vm.vmid }}" class="reset" onclick="confirmAction({{ vm.vmid }}, 'restart')" aria-label="Reset VM {{ vm.vmid }}" style="height: 100%;">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+          </svg>
+          <span>Reset</span>
+        </button>
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+</div>
+<script>
+// Fix viewport height for mobile browsers and set dynamic grid
+function setViewportHeight() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+  const container = document.getElementById('container');
+  if (container) {
+    container.style.height = `${window.innerHeight - 4}px`; // Account for padding
+    setOptimalGrid();
+  }
+}
+
+function setOptimalGrid() {
+  const container = document.getElementById('container');
+  const vmBlocks = document.querySelectorAll('.vm-block');
+  const vmCount = vmBlocks.length;
+  
+  if (!container || vmCount === 0) return;
+  
+  const isPortrait = window.innerHeight > window.innerWidth;
+  let cols, rows;
+  
+  if (vmCount === 1) {
+    cols = 1; rows = 1;
+  } else if (vmCount === 2) {
+    cols = isPortrait ? 1 : 2;
+    rows = isPortrait ? 2 : 1;
+  } else if (vmCount === 3) {
+    cols = isPortrait ? 1 : 2;
+    rows = isPortrait ? 3 : 2;
+  } else if (vmCount === 4) {
+    cols = 2; rows = 2;
+  } else if (vmCount <= 6) {
+    cols = isPortrait ? 2 : 3;
+    rows = Math.ceil(vmCount / cols);
+  } else {
+    cols = isPortrait ? 2 : 3;
+    rows = Math.ceil(vmCount / cols);
+  }
+  
+  container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+}
+
+setViewportHeight();
+window.addEventListener('resize', setViewportHeight);
+window.addEventListener('orientationchange', () => {
+  setTimeout(setViewportHeight, 100); // Delay for orientation change
+});
+
+const shy = {{ 'true' if shy else 'false' }};
+function confirmAction(vmid, action) {
+  if(shy && !confirm(`Are you sure you want to ${action} VM ${vmid}?`)) return;
+  sendCommand(vmid, action);
+}
+function sendCommand(vmid, action) {
+  fetch('/vm/' + vmid + '/' + action, { method: 'POST' })
+    .then(res => res.json())
+    .then(data => alert(data.status === 'success' ? `Success: VM ${data.vmid} ${data.action}` : `Error: ${data.message}`))
+    .catch(err => alert('Error: ' + err));
+}
+function updateVMStatus(statuses) {
+  console.log('Updating VM statuses:', statuses); // Debug log
+  statuses.forEach(vm => {
+    console.log(`Updating VM ${vm.vmid} to status: ${vm.status}`); // Debug log
+    
+    // Update status text in the vmstatus div
+    const vmBlock = document.getElementById('vm-' + vm.vmid);
+    if(vmBlock) {
+      // Update or create/remove usage info
+      let usageEl = vmBlock.querySelector('.usage');
+      if(vm.status === 'running' && vm.ram_gb !== null && vm.cpu_percent !== null) {
+        if(!usageEl) {
+          usageEl = document.createElement('div');
+          usageEl.className = 'usage';
+          vmBlock.querySelector('.vmstatus').appendChild(usageEl);
+        }
+        usageEl.textContent = `${vm.cpu_percent}% CPU ${vm.ram_gb} GB RAM`;
+      } else if(vm.status === 'stopped') {
+        if(!usageEl) {
+          usageEl = document.createElement('div');
+          usageEl.className = 'usage';
+          vmBlock.querySelector('.vmstatus').appendChild(usageEl);
+        }
+        usageEl.textContent = 'Stopped';
+      } else {
+        if(usageEl) {
+          usageEl.remove();
+        }
+      }
+    }
+
+    // Buttons reference
+    const startBtn = document.getElementById('start-' + vm.vmid);
+    const shutdownBtn = document.getElementById('shutdown-' + vm.vmid);
+    const rebootBtn = document.getElementById('reboot-' + vm.vmid);
+    const stopBtn = document.getElementById('stop-' + vm.vmid);
+    const resetBtn = document.getElementById('reset-' + vm.vmid);
+    const buttonGrid = document.querySelector(`#vm-${vm.vmid} .button-grid`);
+    const buttonRow = document.querySelector(`#vm-${vm.vmid} .button-row`);
+
+    if(vm.status === 'running') {
+      console.log(`Setting VM ${vm.vmid} buttons for running state`); // Debug log
+      if(startBtn) startBtn.style.display = 'none';
+      if(shutdownBtn) shutdownBtn.style.display = 'flex';
+      if(rebootBtn) rebootBtn.style.display = 'flex';
+      if(stopBtn) stopBtn.style.display = 'flex';
+      if(resetBtn) resetBtn.style.display = 'flex';
+      if(buttonRow) buttonRow.style.display = 'grid';
+      // 3 rows: shutdown, reboot, stop+reset row
+      if(buttonGrid) {
+        buttonGrid.style.gridTemplateColumns = '1fr';
+        buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
+      }
+    } else {
+      console.log(`Setting VM ${vm.vmid} buttons for stopped state`); // Debug log
+      if(startBtn) startBtn.style.display = 'flex';
+      if(shutdownBtn) shutdownBtn.style.display = 'none';
+      if(rebootBtn) rebootBtn.style.display = 'none';
+      if(stopBtn) stopBtn.style.display = 'none';
+      if(resetBtn) resetBtn.style.display = 'none';
+      if(buttonRow) buttonRow.style.display = 'none';
+      // 1 button: 1x1 grid
+      if(buttonGrid) {
+        buttonGrid.style.gridTemplateColumns = '1fr';
+        buttonGrid.style.gridTemplateRows = '1fr';
+      }
+    }
+  });
+}
+
+// Set initial button states based on current VM status
+function setInitialButtonStates() {
+  const vmBlocks = document.querySelectorAll('.vm-block');
+  vmBlocks.forEach(vmBlock => {
+    const vmId = vmBlock.id.replace('vm-', '');
+    const usageEl = vmBlock.querySelector('.usage');
+    // Check if VM is running by looking for CPU/RAM info or if usage doesn't say "Stopped"
+    const isRunning = usageEl && usageEl.textContent.includes('CPU') && usageEl.textContent.includes('RAM');
+    
+    console.log(`VM ${vmId}: isRunning = ${isRunning}, usage text = "${usageEl ? usageEl.textContent : 'none'}"`);
+    
+    const startBtn = document.getElementById('start-' + vmId);
+    const shutdownBtn = document.getElementById('shutdown-' + vmId);
+    const rebootBtn = document.getElementById('reboot-' + vmId);
+    const stopBtn = document.getElementById('stop-' + vmId);
+    const resetBtn = document.getElementById('reset-' + vmId);
+    const buttonGrid = vmBlock.querySelector('.button-grid');
+    const buttonRow = vmBlock.querySelector('.button-row');
+
+    if(isRunning) {
+      if(startBtn) startBtn.style.display = 'none';
+      if(shutdownBtn) shutdownBtn.style.display = 'flex';
+      if(rebootBtn) rebootBtn.style.display = 'flex';
+      if(stopBtn) stopBtn.style.display = 'flex';
+      if(resetBtn) resetBtn.style.display = 'flex';
+      if(buttonRow) buttonRow.style.display = 'grid';
+      if(buttonGrid) {
+        buttonGrid.style.gridTemplateColumns = '1fr';
+        buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
+      }
+    } else {
+      if(startBtn) startBtn.style.display = 'flex';
+      if(shutdownBtn) shutdownBtn.style.display = 'none';
+      if(rebootBtn) rebootBtn.style.display = 'none';
+      if(stopBtn) stopBtn.style.display = 'none';
+      if(resetBtn) resetBtn.style.display = 'none';
+      if(buttonRow) buttonRow.style.display = 'none';
+      if(buttonGrid) {
+        buttonGrid.style.gridTemplateColumns = '1fr';
+        buttonGrid.style.gridTemplateRows = '1fr';
+      }
+    }
+  });
+}
+function fetchStatus() {
+  fetch('/vm_status')
+    .then(res => {
+      if (!res.ok) throw new Error('Network response was not ok');
+      return res.json();
+    })
+    .then(data => {
+      console.log('Fetched status data:', data); // Debug log
+      updateVMStatus(data);
+    })
+    .catch(err => {
+      console.error('Error fetching VM status:', err);
+    });
+}
+
+// Initialize everything when page loads
+console.log('Loading ProxPad interface...');
+
+setInitialButtonStates();
+fetchStatus();
+setInterval(fetchStatus, 1000);
+</script>
+</body>
+</html>
+""", vms=vms, shy=SHY)
+
+@app.route('/vm/<int:vmid>/<action>', methods=['POST'])
+def control_vm(vmid, action):
+    try:
+        node = proxmox.nodes.get()[0]['node']
+        if action == 'start':
+            proxmox.nodes(node).qemu(vmid).status.start.post()
+        elif action == 'stop':
+            proxmox.nodes(node).qemu(vmid).status.stop.post()
+        elif action == 'restart':
+            proxmox.nodes(node).qemu(vmid).status.reset.post()
+        elif action == 'shutdown':
+            proxmox.nodes(node).qemu(vmid).status.shutdown.post()
+        elif action == 'reboot':
+            proxmox.nodes(node).qemu(vmid).status.reboot.post()
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
+        return jsonify({'status': 'success', 'vmid': vmid, 'action': action})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/vm_status')
+def vm_status():
+    node = proxmox.nodes.get()[0]['node']
+    statuses = []
+    for vmid in VM_IDS:
+        try:
+            status_data = proxmox.nodes(node).qemu(vmid).status.current.get()
+            vm_status = status_data.get('status', 'unknown')
+            ram_gb = format_ram(status_data.get('mem', 0)) if vm_status == 'running' else None
+            cpu_percent = round(status_data.get('cpu', 0) * 100, 1) if vm_status == 'running' else None
+            statuses.append({'vmid': vmid, 'status': vm_status, 'ram_gb': ram_gb, 'cpu_percent': cpu_percent})
+        except:
+            statuses.append({'vmid': vmid, 'status': 'error', 'ram_gb': None, 'cpu_percent': None})
+    return jsonify(statuses)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
