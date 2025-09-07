@@ -253,7 +253,7 @@ def index():
     border: 1px solid var(--button-border);
     border-radius: 12px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 36px;
     font-weight: 600;
     width: 100%;
     min-height: 0;
@@ -305,15 +305,15 @@ def index():
     color: var(--reboot-text);
   }
   button span {
-    font-size: 16px;
+    font-size: 36px;
     font-weight: 700;
     text-shadow: 0 1px 3px rgba(0,0,0,0.4);
     margin-top: 4px;
     letter-spacing: 0.5px;
   }
   .icon {
-    width: 32px;
-    height: 32px;
+    width: 60px;
+    height: 60px;
     filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
     color: inherit; /* Ensure icons inherit button text color */
   }
@@ -359,30 +359,30 @@ def index():
     button {
       padding: 2px 4px !important;
       gap: 1px !important;
-      font-size: 10px !important;
+      font-size: 16px !important;
       min-height: 0 !important;
       height: 100% !important;
     }
     
     button span {
-      font-size: 8px !important;
+      font-size: 16px !important;
       margin-top: 1px !important;
     }
     
     .icon {
-      width: 14px !important;
-      height: 14px !important;
+      width: 32px !important;
+      height: 32px !important;
     }
   }
   
   /* Very small screens */
   @media (max-width: 480px) {
     button span {
-      font-size: 12px;
+      font-size: 18px;
     }
     .icon {
-      width: 24px;
-      height: 24px;
+      width: 36px;
+      height: 36px;
     }
     button {
       padding: 6px 4px;
