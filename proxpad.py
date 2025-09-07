@@ -64,6 +64,7 @@ except Exception as e:
 
 VM_IDS = config.VM_IDS
 SHY = config.SHY
+SAME_RESOURCES = getattr(config, 'SAME_RESOURCES', [])
 
 def format_ram(ram_bytes):
     gb = ram_bytes / (1024 ** 3)
@@ -72,7 +73,9 @@ def format_ram(ram_bytes):
 @app.route('/')
 def index():
     node = proxmox.nodes.get()[0]['node']
-    vms = []
+    
+    # First, get all VM statuses
+    all_vm_statuses = {}
     for vmid in VM_IDS:
         try:
             status = proxmox.nodes(node).qemu(vmid).status.current.get()
@@ -81,9 +84,39 @@ def index():
             vm_status = status.get('status', 'unknown')
             ram_gb = format_ram(status.get('mem', 0)) if vm_status == 'running' else None
             cpu_percent = round(status.get('cpu', 0) * 100, 1) if vm_status == 'running' else None
-            vms.append({'vmid': vmid, 'name': name, 'status': vm_status, 'ram_gb': ram_gb, 'cpu_percent': cpu_percent})
+            all_vm_statuses[vmid] = {
+                'vmid': vmid, 
+                'name': name, 
+                'status': vm_status, 
+                'ram_gb': ram_gb, 
+                'cpu_percent': cpu_percent
+            }
         except Exception:
-            vms.append({'vmid': vmid, 'name': f'VM {vmid}', 'status': 'error', 'ram_gb': None, 'cpu_percent': None})
+            all_vm_statuses[vmid] = {
+                'vmid': vmid, 
+                'name': f'VM {vmid}', 
+                'status': 'error', 
+                'ram_gb': None, 
+                'cpu_percent': None
+            }
+    
+    # Determine which VMs to hide based on SAME_RESOURCES
+    hidden_vms = set()
+    for resource_group in SAME_RESOURCES:
+        # Check if any VM in this group is running
+        running_vms_in_group = [vmid for vmid in resource_group if all_vm_statuses.get(vmid, {}).get('status') == 'running']
+        
+        if running_vms_in_group:
+            # Hide all other VMs in this group (except the running ones)
+            for vmid in resource_group:
+                if vmid not in running_vms_in_group:
+                    hidden_vms.add(vmid)
+    
+    # Build the final VM list, excluding hidden VMs
+    vms = []
+    for vmid in VM_IDS:
+        if vmid not in hidden_vms:
+            vms.append(all_vm_statuses[vmid])
 
     return render_template_string("""
 <!DOCTYPE html>
@@ -470,10 +503,7 @@ function sendCommand(vmid, action) {
     .catch(err => alert('Error: ' + err));
 }
 function updateVMStatus(statuses) {
-  console.log('Updating VM statuses:', statuses); // Debug log
   statuses.forEach(vm => {
-    console.log(`Updating VM ${vm.vmid} to status: ${vm.status}`); // Debug log
-    
     // Update status text in the vmstatus div
     const vmBlock = document.getElementById('vm-' + vm.vmid);
     if(vmBlock) {
@@ -510,7 +540,6 @@ function updateVMStatus(statuses) {
     const buttonRow = document.querySelector(`#vm-${vm.vmid} .button-row`);
 
     if(vm.status === 'running') {
-      console.log(`Setting VM ${vm.vmid} buttons for running state`); // Debug log
       if(startBtn) startBtn.style.display = 'none';
       if(shutdownBtn) shutdownBtn.style.display = 'flex';
       if(rebootBtn) rebootBtn.style.display = 'flex';
@@ -523,7 +552,6 @@ function updateVMStatus(statuses) {
         buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
       }
     } else {
-      console.log(`Setting VM ${vm.vmid} buttons for stopped state`); // Debug log
       if(startBtn) startBtn.style.display = 'flex';
       if(shutdownBtn) shutdownBtn.style.display = 'none';
       if(rebootBtn) rebootBtn.style.display = 'none';
@@ -547,8 +575,6 @@ function setInitialButtonStates() {
     const usageEl = vmBlock.querySelector('.usage');
     // Check if VM is running by looking for CPU/RAM info or if usage doesn't say "Stopped"
     const isRunning = usageEl && usageEl.textContent.includes('CPU') && usageEl.textContent.includes('RAM');
-    
-    console.log(`VM ${vmId}: isRunning = ${isRunning}, usage text = "${usageEl ? usageEl.textContent : 'none'}"`);
     
     const startBtn = document.getElementById('start-' + vmId);
     const shutdownBtn = document.getElementById('shutdown-' + vmId);
@@ -590,7 +616,28 @@ function fetchStatus() {
       return res.json();
     })
     .then(data => {
-      console.log('Fetched status data:', data); // Debug log
+      // Check if the number of VMs changed (indicating VMs were hidden/shown due to SAME_RESOURCES)
+      const currentVMCount = document.querySelectorAll('.vm-block').length;
+      const newVMCount = data.length;
+      
+      if (currentVMCount !== newVMCount) {
+        // VM list changed due to resource sharing logic, refresh the page
+        window.location.reload();
+        return;
+      }
+      
+      // Check if any VM IDs are different (new VMs appeared or disappeared)
+      const currentVMIds = Array.from(document.querySelectorAll('.vm-block')).map(block => 
+        parseInt(block.id.replace('vm-', ''))
+      ).sort();
+      const newVMIds = data.map(vm => vm.vmid).sort();
+      
+      if (JSON.stringify(currentVMIds) !== JSON.stringify(newVMIds)) {
+        window.location.reload();
+        return;
+      }
+      
+      // If VM count and IDs are the same, just update statuses
       updateVMStatus(data);
     })
     .catch(err => {
@@ -599,8 +646,6 @@ function fetchStatus() {
 }
 
 // Initialize everything when page loads
-console.log('Loading ProxPad interface...');
-
 setInitialButtonStates();
 fetchStatus();
 setInterval(fetchStatus, 1000);
@@ -632,16 +677,37 @@ def control_vm(vmid, action):
 @app.route('/vm_status')
 def vm_status():
     node = proxmox.nodes.get()[0]['node']
-    statuses = []
+    
+    # First, get all VM statuses
+    all_vm_statuses = {}
     for vmid in VM_IDS:
         try:
             status_data = proxmox.nodes(node).qemu(vmid).status.current.get()
             vm_status = status_data.get('status', 'unknown')
             ram_gb = format_ram(status_data.get('mem', 0)) if vm_status == 'running' else None
             cpu_percent = round(status_data.get('cpu', 0) * 100, 1) if vm_status == 'running' else None
-            statuses.append({'vmid': vmid, 'status': vm_status, 'ram_gb': ram_gb, 'cpu_percent': cpu_percent})
+            all_vm_statuses[vmid] = {'vmid': vmid, 'status': vm_status, 'ram_gb': ram_gb, 'cpu_percent': cpu_percent}
         except:
-            statuses.append({'vmid': vmid, 'status': 'error', 'ram_gb': None, 'cpu_percent': None})
+            all_vm_statuses[vmid] = {'vmid': vmid, 'status': 'error', 'ram_gb': None, 'cpu_percent': None}
+    
+    # Determine which VMs to hide based on SAME_RESOURCES
+    hidden_vms = set()
+    for resource_group in SAME_RESOURCES:
+        # Check if any VM in this group is running
+        running_vms_in_group = [vmid for vmid in resource_group if all_vm_statuses.get(vmid, {}).get('status') == 'running']
+        
+        if running_vms_in_group:
+            # Hide all other VMs in this group (except the running ones)
+            for vmid in resource_group:
+                if vmid not in running_vms_in_group:
+                    hidden_vms.add(vmid)
+    
+    # Build the final status list, excluding hidden VMs
+    statuses = []
+    for vmid in VM_IDS:
+        if vmid not in hidden_vms:
+            statuses.append(all_vm_statuses[vmid])
+    
     return jsonify(statuses)
 
 if __name__ == '__main__':
