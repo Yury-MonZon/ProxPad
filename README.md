@@ -35,7 +35,7 @@ ProxPad is a web-based interface for managing Proxmox virtual machines with a fo
 
 1. **Clone or download the project files**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Yury-MonZon/ProxPad.git
    cd ProxPad
    ```
 
