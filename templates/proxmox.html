@@ -406,7 +406,60 @@
   </section>
   {% endfor %}
 </div>
+<!-- Output Display -->
+<div class="vm-output" id="vmOutput">
+  <button class="close-btn" onclick="closeVMOutput()">&times;</button>
+  <pre id="vmOutputContent"></pre>
+</div>
+<style>
+  .vm-output {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface-primary);
+    border: 1px solid var(--surface-border);
+    border-radius: 10px;
+    padding: 16px 32px 16px 16px;
+    max-width: 350px;
+    z-index: 1000;
+    color: var(--text-primary);
+    font-size: 1rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .vm-output.show {
+    display: block;
+  }
+  .vm-output .close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+  .vm-output pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: inherit;
+  }
+</style>
 <script>
+function showVMOutput(msg, success=true) {
+  const outputDiv = document.getElementById('vmOutput');
+  const contentPre = document.getElementById('vmOutputContent');
+  contentPre.textContent = msg;
+  outputDiv.classList.add('show');
+  outputDiv.style.borderColor = success ? '#1a5a2a' : '#8f252e';
+  setTimeout(() => {
+    outputDiv.classList.remove('show');
+  }, 5000);
+}
+function closeVMOutput() {
+  document.getElementById('vmOutput').classList.remove('show');
+}
 // Fix viewport height for mobile browsers and set dynamic grid
 function setViewportHeight() {
   const vh = window.innerHeight * 0.01;
@@ -456,6 +509,7 @@ window.addEventListener('orientationchange', () => {
   setTimeout(setViewportHeight, 100); // Delay for orientation change
 });
 
+// Render shy as a JS boolean using Jinja
 const shy = {{ 'true' if shy else 'false' }};
 function confirmAction(vmid, action) {
   if(shy && !confirm(`Are you sure you want to ${action} VM ${vmid}?`)) return;
@@ -465,10 +519,15 @@ function sendCommand(vmid, action) {
   fetch('/vm/' + vmid + '/' + action, { method: 'POST' })
     .then(res => res.json())
     .then(data => {
-      // Command sent - no alert shown
-      console.log(data.status === 'success' ? `Success: VM ${data.vmid} ${data.action}` : `Error: ${data.message}`);
+      if (data.status === 'success') {
+        showVMOutput(`Success: VM ${data.vmid} ${data.action}`, true);
+      } else {
+        showVMOutput(`Error: ${data.message || 'Unknown error'}`, false);
+      }
     })
-    .catch(err => console.error('Error: ' + err));
+    .catch(err => {
+      showVMOutput('Error: ' + err, false);
+    });
 }
 function updateVMStatus(statuses) {
   statuses.forEach(vm => {

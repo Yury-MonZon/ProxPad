@@ -270,8 +270,61 @@
             <span>Launch Player</span>
         </button>
     </div>
+    <!-- Output Display -->
+    <div class="media-output" id="mediaOutput">
+        <button class="close-btn" onclick="closeMediaOutput()">&times;</button>
+        <pre id="mediaOutputContent"></pre>
+    </div>
 
+    <style>
+        .media-output {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--button-border);
+            border-radius: 10px;
+            padding: 16px 32px 16px 16px;
+            max-width: 350px;
+            z-index: 1000;
+            color: var(--text-primary);
+            font-size: 1rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            display: none;
+        }
+        .media-output.show {
+            display: block;
+        }
+        .media-output .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .media-output pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: inherit;
+        }
+    </style>
     <script>
+        function showMediaOutput(msg, success=true) {
+            const outputDiv = document.getElementById('mediaOutput');
+            const contentPre = document.getElementById('mediaOutputContent');
+            contentPre.textContent = msg;
+            outputDiv.classList.add('show');
+            outputDiv.style.borderColor = success ? '#a6e3a1' : '#f38ba8';
+            setTimeout(() => {
+                outputDiv.classList.remove('show');
+            }, 5000);
+        }
+        function closeMediaOutput() {
+            document.getElementById('mediaOutput').classList.remove('show');
+        }
         function mediaControl(action) {
             fetch(`/media_control/${action}`, {
                 method: 'POST',
@@ -282,16 +335,15 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    console.log(`Media ${action} command sent successfully`);
+                    showMediaOutput(`Media ${action} command sent successfully`, true);
                 } else {
-                    console.error('Failed to send media command:', data.error);
+                    showMediaOutput('Failed: ' + (data.error || 'Unknown error'), false);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                showMediaOutput('Error: ' + error, false);
             });
         }
-
         function launchMusicPlayer() {
             fetch('/launch_music_player', {
                 method: 'POST',
@@ -302,13 +354,13 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    console.log(`Music player ${data.player} launched successfully`);
+                    showMediaOutput(`Music player ${data.player} launched successfully`, true);
                 } else {
-                    console.error('Failed to launch music player:', data.error);
+                    showMediaOutput('Failed: ' + (data.error || 'Unknown error'), false);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                showMediaOutput('Error: ' + error, false);
             });
         }
     </script>
