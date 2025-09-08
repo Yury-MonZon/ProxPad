@@ -5,7 +5,7 @@ ProxPad is a web-based interface for managing Proxmox virtual machines with a fo
 ## Screenshots
 
 ### Portrait Mode (Mobile)
-![VM Page](images/landscape.jpg)
+![VM Page](images/landscape1.jpg)
 
 ![Macro Page](images/landscape2.jpg)
 
