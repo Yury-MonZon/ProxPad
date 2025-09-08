@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Controls</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* Colors */
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --button-bg: #404040;
+            --button-hover: #505050;
+            --button-border: #555555;
+            
+            /* Catppuccin colors for specific button groups */
+            --play-bg: #a6e3a1;
+            --play-border: #94d393;
+            --play-text: #1a1a1a;
+            
+            --volume-bg: #89b4fa;
+            --volume-border: #74a0f7;
+            --volume-text: #1a1a1a;
+            
+            --launch-bg: #f38ba8;
+            --launch-border: #f078a4;
+            --launch-text: #1a1a1a;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            background: var(--primary-bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            box-sizing: border-box;
+        }
+
+        .unified-grid {
+            width: 100vw;
+            height: 100dvh;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+            box-sizing: border-box;
+            padding: 8px;
+        }
+
+        .control-btn {
+            border: 1px solid var(--button-border);
+            border-radius: 12px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            height: 100%;
+            width: 100%;
+            min-height: 0;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        .control-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+            filter: brightness(1.15);
+        }
+
+        .control-btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+
+        .control-btn i {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+        }
+
+        .control-btn span {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        /* Media control colors */
+        .media-btn {
+            background: var(--play-bg);
+            border-color: var(--play-border);
+            color: var(--play-text);
+        }
+
+        /* Volume control colors */
+        .volume-btn {
+            background: var(--volume-bg);
+            border-color: var(--volume-border);
+            color: var(--volume-text);
+        }
+
+        .launch-btn {
+            background: var(--launch-bg);
+            border-color: var(--launch-border);
+            color: var(--launch-text);
+        }
+
+        /* Responsive Styles */
+        /* Portrait mode optimizations */
+        @media (orientation: portrait) {
+            .unified-grid {
+                padding: 12px;
+                gap: 8px;
+            }
+            
+            .control-btn i {
+                font-size: 2rem;
+            }
+            
+            .control-btn span {
+                font-size: 0.8rem;
+            }
+            
+            .launch-player-btn {
+                padding: 12px;
+                font-size: 0.95rem;
+            }
+            
+            .launch-player-btn i {
+                font-size: 1.7rem;
+            }
+        }
+
+        /* Landscape mode optimizations */
+        @media (orientation: landscape) {
+            .unified-grid {
+                padding: 6px;
+                gap: 8px;
+            }
+            
+            .control-btn {
+                padding: 4px;
+            }
+            
+            .control-btn i {
+                font-size: 1.5rem;
+            }
+            
+            .control-btn span {
+                font-size: 0.7rem;
+            }
+            
+            .launch-player-btn {
+                padding: 6px;
+                font-size: 0.8rem;
+            }
+            
+            .launch-player-btn i {
+                font-size: 1.3rem;
+            }
+        }        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
+            .unified-grid {
+                padding: 5px;
+                gap: 8px;
+            }
+            
+            .control-btn {
+                padding: 6px;
+                min-height: 55px;
+            }
+            
+            .control-btn i {
+                font-size: 1.5rem;
+            }
+            
+            .control-btn span {
+                font-size: 0.75rem;
+            }
+
+            .launch-player-btn {
+                min-height: 50px;
+                font-size: 0.85rem;
+                padding: 8px;
+            }
+
+            .launch-player-btn i {
+                font-size: 1.3rem;
+            }
+        }
+
+        @media (max-height: 600px) {
+            .unified-grid {
+                padding: 5px;
+                gap: 6px;
+            }
+            
+            .control-btn {
+                min-height: 45px;
+                padding: 4px;
+            }
+            
+            .control-btn i {
+                font-size: 1.3rem;
+                margin-bottom: 2px;
+            }
+            
+            .control-btn span {
+                font-size: 0.7rem;
+            }
+            
+            .launch-player-btn {
+                padding: 6px;
+                min-height: 40px;
+                font-size: 0.8rem;
+            }
+
+            .launch-player-btn i {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="unified-grid">
+        <button class="control-btn media-btn" onclick="mediaControl('previous')">
+            <i class="bi bi-skip-backward-fill"></i>
+            <span>Previous</span>
+        </button>
+        <button class="control-btn media-btn" onclick="mediaControl('play_pause')">
+            <i class="bi bi-play-circle-fill"></i>
+            <span>Play/Pause</span>
+        </button>
+        <button class="control-btn media-btn" onclick="mediaControl('next')">
+            <i class="bi bi-skip-forward-fill"></i>
+            <span>Next</span>
+        </button>
+        <button class="control-btn volume-btn" onclick="mediaControl('volume_down')">
+            <i class="bi bi-volume-down-fill"></i>
+            <span>Vol Down</span>
+        </button>
+        <button class="control-btn volume-btn" onclick="mediaControl('mute')">
+            <i class="bi bi-volume-mute-fill"></i>
+            <span>Mute</span>
+        </button>
+        <button class="control-btn volume-btn" onclick="mediaControl('volume_up')">
+            <i class="bi bi-volume-up-fill"></i>
+            <span>Vol Up</span>
+        </button>
+        <button class="control-btn launch-btn" style="grid-column: 1 / span 3;" onclick="launchMusicPlayer()">
+            <i class="bi bi-music-player"></i>
+            <span>Launch Player</span>
+        </button>
+    </div>
+
+    <script>
+        function mediaControl(action) {
+            fetch(`/media_control/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`Media ${action} command sent successfully`);
+                } else {
+                    console.error('Failed to send media command:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function launchMusicPlayer() {
+            fetch('/launch_music_player', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`Music player ${data.player} launched successfully`);
+                } else {
+                    console.error('Failed to launch music player:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>

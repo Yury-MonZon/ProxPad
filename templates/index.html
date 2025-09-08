@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>ProxPad - Proxmox VM Controls</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Proxmox dark theme colors */
+        :root {
+            --bg-primary: #1a1a1a;
+            --text-primary: #d0d0d0;
+            --text-secondary: #a0a0a0;
+            --surface-primary: #2a2a2a;
+            --surface-border: #404040;
+            --tab-bg: #2a2a2a;
+            --tab-border: #404040;
+            --tab-active-bg: #1a5a2a;
+            --tab-active-border: #134320;
+            --tab-hover-bg: #3a3a3a;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .container-fluid {
+            height: 100vh;
+            height: 100dvh;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* Tab Navigation */
+        .nav-tabs {
+            background: var(--surface-primary);
+            border-bottom: 1px solid var(--surface-border);
+            margin: 0;
+            flex-shrink: 0;
+            border-radius: 0;
+        }
+
+        .nav-tabs .nav-link {
+            background: var(--tab-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--tab-border);
+            border-bottom: none;
+            margin-right: 0;
+            margin-bottom: -1px;
+            padding: 12px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 0;
+            position: relative;
+        }
+
+        .nav-tabs .nav-link:hover {
+            background: var(--tab-hover-bg);
+            color: var(--text-primary);
+            border-color: var(--surface-border);
+        }
+
+        .nav-tabs .nav-link.active {
+            background: var(--tab-active-bg);
+            color: var(--text-primary);
+            border-color: var(--tab-active-border);
+            border-bottom: 1px solid var(--tab-active-bg);
+            z-index: 1;
+        }
+
+        /* Main content area */
+        .tab-content {
+            flex: 1;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .tab-pane {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .content-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--bg-primary);
+        }
+
+        /* Portrait mode - horizontal tabs on top */
+        @media (orientation: portrait) {
+            .container-fluid {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .nav-tabs {
+                display: flex;
+                flex-direction: row;
+                width: 100%;
+                justify-content: stretch;
+                padding: 0;
+                border-bottom: 1px solid var(--surface-border);
+            }
+
+            .nav-tabs .nav-item {
+                flex: 1;
+            }
+
+            .nav-tabs .nav-link {
+                margin: 0;
+                border-radius: 0;
+                border-right: 1px solid var(--tab-border);
+                border-bottom: none;
+                text-align: center;
+                width: 100%;
+            }
+
+            .nav-tabs .nav-item:last-child .nav-link {
+                border-right: none;
+            }
+
+            .nav-tabs .nav-link.active {
+                border-bottom: 1px solid var(--tab-active-bg);
+            }
+        }
+
+        /* Landscape mode - will be set by JavaScript */
+        @media (orientation: landscape) {
+            body {
+                overflow: hidden;
+            }
+            
+            .container-fluid.tabs-right {
+                display: flex;
+                flex-direction: row-reverse;
+                height: 100vh;
+                height: calc(var(--vh, 1vh) * 100);
+                overflow: hidden;
+            }
+            
+            .container-fluid.tabs-left {
+                display: flex;
+                flex-direction: row;
+                height: 100vh;
+                height: calc(var(--vh, 1vh) * 100);
+                overflow: hidden;
+            }
+
+            .tabs-right .nav-tabs,
+            .tabs-left .nav-tabs {
+                flex-direction: column;
+                border-bottom: none;
+                width: 60px;
+                min-width: 60px;
+                max-width: 60px;
+                height: 100vh;
+                height: calc(var(--vh, 1vh) * 100);
+                flex-shrink: 0;
+                display: flex;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .tabs-right .nav-tabs .nav-item,
+            .tabs-left .nav-tabs .nav-item {
+                flex: 1;
+                height: calc(var(--vh, 1vh) * 100 / 3);
+                display: flex;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .tabs-right .nav-tabs {
+                border-left: 1px solid #dee2e6;
+            }
+            
+            .tabs-left .nav-tabs {
+                border-right: 1px solid #dee2e6;
+            }
+
+            .tabs-right .nav-tabs .nav-link,
+            .tabs-left .nav-tabs .nav-link {
+                border-bottom: 1px solid #dee2e6;
+                margin: 0;
+                padding: 0.2rem;
+                height: 100%;
+                width: 60px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                font-size: 0.7rem;
+                writing-mode: horizontal-tb;
+            }
+
+            .tabs-right .nav-tabs .nav-link {
+                border-left: none;
+                border-radius: 0 0.25rem 0.25rem 0;
+                margin-left: -1px;
+            }
+            
+            .tabs-left .nav-tabs .nav-link {
+                border-right: none;
+                border-radius: 0.25rem 0 0 0.25rem;
+                margin-right: -1px;
+            }
+
+            .tabs-right .nav-tabs .nav-link.active {
+                border-left-color: transparent;
+            }
+            
+            .tabs-left .nav-tabs .nav-link.active {
+                border-right-color: transparent;
+            }
+
+            .tabs-right .tab-content {
+                flex: 1;
+                border-right: 1px solid #dee2e6;
+                margin-right: -1px;
+                height: 100vh;
+                height: calc(var(--vh, 1vh) * 100);
+                overflow: hidden;
+            }
+            
+            .tabs-left .tab-content {
+                flex: 1;
+                border-left: 1px solid #dee2e6;
+                margin-left: -1px;
+                height: 100vh;
+                height: calc(var(--vh, 1vh) * 100);
+                overflow: hidden;
+            }
+            
+            .tab-pane iframe {
+                width: 100%;
+                height: 100vh;
+                height: calc(var(--vh, 1vh) * 100);
+                border: none;
+            }
+        }        /* Loading indicator */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="proxmox-tab" data-bs-toggle="tab" data-bs-target="#proxmox" type="button" role="tab" aria-controls="proxmox" aria-selected="true">
+                    VMs
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="media-tab" data-bs-toggle="tab" data-bs-target="#media" type="button" role="tab" aria-controls="media" aria-selected="false">
+                    Media
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="macro1-tab" data-bs-toggle="tab" data-bs-target="#macro1" type="button" role="tab" aria-controls="macro1" aria-selected="false">
+                    M1
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="macro2-tab" data-bs-toggle="tab" data-bs-target="#macro2" type="button" role="tab" aria-controls="macro2" aria-selected="false">
+                    M2
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="mainTabContent">
+            <!-- Proxmox Tab -->
+            <div class="tab-pane fade show active" id="proxmox" role="tabpanel" aria-labelledby="proxmox-tab">
+                <iframe src="/proxmox" class="content-frame" title="Proxmox Controls"></iframe>
+            </div>
+
+            <!-- Media Tab -->
+            <div class="tab-pane fade" id="media" role="tabpanel" aria-labelledby="media-tab">
+                <iframe src="/media" class="content-frame" title="Media Controls"></iframe>
+            </div>
+
+            <!-- Macro 1 Tab -->
+            <div class="tab-pane fade" id="macro1" role="tabpanel" aria-labelledby="macro1-tab">
+                <iframe src="/macro1" class="content-frame" title="Macro 1 Commands"></iframe>
+            </div>
+
+            <!-- Macro 2 Tab -->
+            <div class="tab-pane fade" id="macro2" role="tabpanel" aria-labelledby="macro2-tab">
+                <iframe src="/macro2" class="content-frame" title="Macro 2 Commands"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Apply tab positioning based on config
+        const TABS_RIGHT = {{ config.TABS_RIGHT|lower }};
+        const container = document.querySelector('.container-fluid');
+        
+        function applyTabPosition() {
+            container.classList.remove('tabs-left', 'tabs-right');
+            if (TABS_RIGHT) {
+                container.classList.add('tabs-right');
+            } else {
+                container.classList.add('tabs-left');
+            }
+        }
+
+        // Apply immediately
+        applyTabPosition();
+
+        // Handle viewport height for mobile browsers
+        function setViewportHeight() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+
+        setViewportHeight();
+        window.addEventListener('resize', setViewportHeight);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                setViewportHeight();
+                applyTabPosition();
+            }, 100);
+        });
+
+        // Pre-load iframe content on tab switch
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabTriggerList = [].slice.call(document.querySelectorAll('#mainTabs button[data-bs-toggle="tab"]'));
+            tabTriggerList.forEach(function (tabTrigger) {
+                tabTrigger.addEventListener('show.bs.tab', function (event) {
+                    const targetPane = document.querySelector(event.target.getAttribute('data-bs-target'));
+                    const iframe = targetPane.querySelector('.content-frame');
+                    
+                    // Reload iframe to ensure fresh content
+                    if (iframe && iframe.src) {
+                        iframe.src = iframe.src;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
