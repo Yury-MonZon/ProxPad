@@ -320,12 +320,7 @@ def macro1() -> str:
     """Macro control interface page 1."""
     try:
         app.logger.info("⌨️ Loading macro control interface 1")
-        macro_configs = {}
-        total_macros = getattr(config, 'PAGE1_MACRO_ROWS', 3) * getattr(config, 'PAGE1_MACRO_COLS', 4)
-        for i in range(1, total_macros + 1):
-            macro_name = f'MACRO1_{i}'
-            if hasattr(config, macro_name):
-                macro_configs[macro_name] = getattr(config, macro_name)
+        macro_configs = getattr(config, 'PAGE1_MACROS', [])
         return render_template('macro1.html', config=config, macro_configs=macro_configs)
     except Exception as e:
         app.logger.error(f"❌ Macro1 interface error: {e}")
@@ -336,12 +331,7 @@ def macro2() -> str:
     """Macro control interface page 2."""
     try:
         app.logger.info("⌨️ Loading macro control interface 2")
-        macro_configs = {}
-        total_macros = getattr(config, 'PAGE2_MACRO_ROWS', 3) * getattr(config, 'PAGE2_MACRO_COLS', 4)
-        for i in range(1, total_macros + 1):
-            macro_name = f'MACRO2_{i}'
-            if hasattr(config, macro_name):
-                macro_configs[macro_name] = getattr(config, macro_name)
+        macro_configs = getattr(config, 'PAGE2_MACROS', [])
         return render_template('macro2.html', config=config, macro_configs=macro_configs)
     except Exception as e:
         app.logger.error(f"❌ Macro2 interface error: {e}")

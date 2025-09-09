@@ -231,50 +231,48 @@
 <body>
     <div class="container-fluid">
         <div class="macro-grid" id="macroGrid">
-            {% for row in range(config.PAGE2_MACRO_ROWS) %}
-                {% for col in range(config.PAGE2_MACRO_COLS) %}
-                    {% set button_num = (row * config.PAGE2_MACRO_COLS) + col + 1 %}
-                    {% set macro_key = 'MACRO2_' + button_num|string %}
-                    {% set macro_config = macro_configs.get(macro_key) %}
-                    {% if macro_config %}
-                        <div class="macro-button" 
-                             data-command="{{ macro_config[3] }}" 
-                             data-confirm="false" 
-                             data-position="{{ button_num }}"
-                             style="background: {{ macro_config[0] }}; border-color: {{ macro_config[0] }}; color: #1e1e2e;">
-                            <div class="macro-content">
-                                {% if macro_config[2].startswith('http') %}
-                                    <img src="{{ macro_config[2] }}" alt="icon" style="height:2.2rem; width:auto; margin-bottom:0px; filter:drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                                {% else %}
-                                    <div class="macro-icon" style="color: #1e1e2e;">
-                                        <i class="{{ macro_config[2] }}"></i>
-                                    </div>
-                                {% endif %}
-                                <div class="macro-title" style="color: #1e1e2e;">{{ macro_config[1] }}</div>
-                            </div>
-                            <div class="loading-spinner">
-                                <div class="spinner-border text-dark" role="status">
-                                    <span class="visually-hidden">Loading...</span>
+            {% set total = config.PAGE2_MACRO_ROWS * config.PAGE2_MACRO_COLS %}
+            {% for i in range(total) %}
+                {% set macro_config = macro_configs[i] if i < macro_configs|length else None %}
+                {% set button_num = i + 1 %}
+                {% if macro_config %}
+                    <div class="macro-button" 
+                         data-command="{{ macro_config[3] }}" 
+                         data-confirm="false" 
+                         data-position="{{ button_num }}"
+                         style="background: {{ macro_config[0] }}; border-color: {{ macro_config[0] }}; color: #1e1e2e;">
+                        <div class="macro-content">
+                            {% if macro_config[2].startswith('http') %}
+                                <img src="{{ macro_config[2] }}" alt="icon" style="height:2.2rem; width:auto; margin-bottom:0px; filter:drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                            {% else %}
+                                <div class="macro-icon" style="color: #1e1e2e;">
+                                    <i class="{{ macro_config[2] }}"></i>
                                 </div>
+                            {% endif %}
+                            <div class="macro-title" style="color: #1e1e2e;">{{ macro_config[1] }}</div>
+                        </div>
+                        <div class="loading-spinner">
+                            <div class="spinner-border text-dark" role="status">
+                                <span class="visually-hidden">Loading...</span>
                             </div>
                         </div>
-                    {% else %}
-                        <div class="macro-button" data-command="" data-confirm="false" data-position="{{ button_num }}">
-                            <div class="macro-content">
-                                <div class="macro-icon">
-                                    <i class="bi bi-plus-circle"></i>
-                                </div>
-                                <div class="macro-title">Macro {{ button_num }}</div>
-                                <div class="macro-description">Not configured</div>
+                    </div>
+                {% else %}
+                    <div class="macro-button" data-command="" data-confirm="false" data-position="{{ button_num }}">
+                        <div class="macro-content">
+                            <div class="macro-icon">
+                                <i class="bi bi-plus-circle"></i>
                             </div>
-                            <div class="loading-spinner">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
+                            <div class="macro-title">Macro {{ button_num }}</div>
+                            <div class="macro-description">Not configured</div>
+                        </div>
+                        <div class="loading-spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
                             </div>
                         </div>
-                    {% endif %}
-                {% endfor %}
+                    </div>
+                {% endif %}
             {% endfor %}
         </div>
     </div>
