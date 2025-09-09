@@ -29,6 +29,7 @@ except ImportError:
     keyboard = None
     Key = None
     KeyCode = None
+    pass
 
 UINPUT_AVAILABLE = False
 uinput = None
@@ -378,32 +379,84 @@ class MacroHandler:
         self.keyboard_controller.release(key)
     
     def _execute_key_combination(self, key_str):
-        """Execute key combination (e.g., ctrl+c, alt+tab, super+l).
-        
-        Args:
-            key_str (str): Key combination string
-            
-        Returns:
-            bool: True if combination was executed successfully
-        """
+        """Execute key combination (e.g., ctrl+c, alt+tab, super+l, alt+tab) via uinput if available."""
         keys = [k.strip() for k in key_str.split('+')]
         self.logger.info(f"🔗 Parsing key combination: {key_str} -> {keys}")
-        
-        # Parse keys into executable format
         keys_to_press = self._parse_key_combination(keys)
-        
         if not keys_to_press:
             self.logger.warning(f"⚠️  No valid keys found in combination: {key_str}")
             return False
-            
         self.logger.info(f"🎯 Executing key combination: {[str(k) for k in keys_to_press]}")
-        
-        # Check for Super key combinations on Linux
-        if self._is_super_combination(keys_to_press):
-            return self._execute_super_combination(keys_to_press)
-        
-        # Execute standard key combination
+
+        # Try uinput for all combos if available
+        if hasattr(self, 'uinput_device') and self.uinput_device:
+            return self._execute_combination_uinput(keys_to_press)
+
+        # Otherwise, use pynput
         return self._execute_standard_combination(keys_to_press, key_str)
+
+    def _execute_combination_uinput(self, keys_to_press):
+        """Execute any key combination using uinput (modifiers + key)."""
+        # Map modifiers and keys to uinput codes
+        key_map = {
+            'ctrl': 'KEY_LEFTCTRL', 'control': 'KEY_LEFTCTRL',
+            'alt': 'KEY_LEFTALT', 'alt_l': 'KEY_LEFTALT', 'alt_r': 'KEY_RIGHTALT',
+            'shift': 'KEY_LEFTSHIFT', 'shift_l': 'KEY_LEFTSHIFT', 'shift_r': 'KEY_RIGHTSHIFT',
+            'super': 'KEY_LEFTMETA', 'win': 'KEY_LEFTMETA', 'cmd': 'KEY_LEFTMETA',
+            'tab': 'KEY_TAB', 'enter': 'KEY_ENTER', 'esc': 'KEY_ESC', 'escape': 'KEY_ESC',
+            'delete': 'KEY_DELETE', 'backspace': 'KEY_BACKSPACE', 'space': 'KEY_SPACE',
+            'up': 'KEY_UP', 'down': 'KEY_DOWN', 'left': 'KEY_LEFT', 'right': 'KEY_RIGHT',
+        }
+        # Add letters and digits
+        for i in range(ord('a'), ord('z')+1):
+            key_map[chr(i)] = f'KEY_{chr(i).upper()}'
+        for i in range(0, 10):
+            key_map[str(i)] = f'KEY_{i}'
+        # Add function keys
+        for i in range(1, 21):
+            key_map[f'f{i}'] = f'KEY_F{i}'
+
+        # Convert keys to uinput codes
+        uinput_keys = []
+        for k in keys_to_press:
+            # If it's a pynput Key object, use its name
+            if hasattr(k, 'name'):
+                kstr = k.name.lower()
+            else:
+                kstr = str(k).lower()
+            code_name = key_map.get(kstr)
+            code = getattr(uinput, code_name, None) if code_name else None
+            if code:
+                uinput_keys.append(code)
+            else:
+                # Try direct mapping for single chars
+                code = self._get_uinput_key_code(kstr)
+                if code:
+                    uinput_keys.append(code)
+                else:
+                    self.logger.warning(f"⚠️  Unknown uinput key for combo: {kstr}")
+                    return False
+
+        # Press all modifiers except last key
+        try:
+            for code in uinput_keys[:-1]:
+                self.uinput_device.emit(code, 1)
+                time.sleep(0.01)
+            # Press and release final key
+            self.uinput_device.emit(uinput_keys[-1], 1)
+            time.sleep(0.05)
+            self.uinput_device.emit(uinput_keys[-1], 0)
+            time.sleep(0.01)
+            # Release all modifiers in reverse
+            for code in reversed(uinput_keys[:-1]):
+                self.uinput_device.emit(code, 0)
+                time.sleep(0.01)
+            self.uinput_device.syn()
+            self.logger.info(f"✅ uinput combo executed: {uinput_keys}")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ uinput combo error: {e}")
+            return False
     
     def _parse_key_combination(self, keys):
         """Parse key combination into executable key objects.
@@ -454,33 +507,6 @@ class MacroHandler:
             'cmd': Key.cmd, 'win': Key.cmd, 'super': Key.cmd,
         }
     
-    def _is_super_combination(self, keys_to_press):
-        """Check if this is a Super key combination.
-        
-        Args:
-            keys_to_press (list): List of keys to press
-            
-        Returns:
-            bool: True if this contains a Super key
-        """
-        return any(str(key) == "Key.cmd" for key in keys_to_press) and len(keys_to_press) == 2
-    
-    def _execute_super_combination(self, keys_to_press):
-        """Execute Super key combination using uinput if available.
-        
-        Args:
-            keys_to_press (list): List containing Super key and another key
-            
-        Returns:
-            bool: True if executed successfully
-        """
-        if self.uinput_device:
-            return self._execute_super_combination_uinput(keys_to_press)
-        else:
-            self.logger.warning("⚠️  Super key combinations require sudo privileges")
-            self.logger.warning("   Falling back to pynput (may not work properly)")
-            return self._execute_standard_combination(keys_to_press, "super+key")
-    
     def _execute_standard_combination(self, keys_to_press, key_str):
         """Execute standard key combination using pynput.
         
@@ -528,7 +554,7 @@ class MacroHandler:
             for context in reversed(contexts):
                 context.__exit__(None, None, None)
             
-            self.logger.info(f"✅ Key combination executed successfully")
+            self.logger.info("✅ Key combination executed successfully")
             return True
             
         except Exception as e:
@@ -623,23 +649,8 @@ class MacroHandler:
         return super_key, other_key
     
     def _get_uinput_key_code(self, key_str):
-        """Get uinput key code for a character.
-        
-        Args:
-            key_str (str): Character string
-            
-        Returns:
-            uinput key code or None if not supported
-        """
-        char_to_uinput = {
-            'a': uinput.KEY_A, 'b': uinput.KEY_B, 'c': uinput.KEY_C, 'd': uinput.KEY_D,
-            'e': uinput.KEY_E, 'f': uinput.KEY_F, 'g': uinput.KEY_G, 'h': uinput.KEY_H,
-            'i': uinput.KEY_I, 'j': uinput.KEY_J, 'k': uinput.KEY_K, 'l': uinput.KEY_L,
-            'm': uinput.KEY_M, 'n': uinput.KEY_N, 'o': uinput.KEY_O, 'p': uinput.KEY_P,
-            'q': uinput.KEY_Q, 'r': uinput.KEY_R, 's': uinput.KEY_S, 't': uinput.KEY_T,
-            'u': uinput.KEY_U, 'v': uinput.KEY_V, 'w': uinput.KEY_W, 'x': uinput.KEY_X,
-            'y': uinput.KEY_Y, 'z': uinput.KEY_Z,
-        }
+        """Get uinput key code for a character (letters a-z)."""
+        char_to_uinput = {chr(i): getattr(uinput, f'KEY_{chr(i).upper()}', None) for i in range(ord('a'), ord('z')+1)}
         return char_to_uinput.get(key_str)
     
     def _perform_uinput_combination(self, uinput_key, key_name):
@@ -696,14 +707,8 @@ class MacroHandler:
         try:
             # Remove exe: prefix if present
             final_command = exe_str[4:] if exe_str.startswith('exe:') else exe_str
-            
             self.logger.info(f"🚀 Launching program: {final_command}")
-            
-            # If running as root/sudo, execute GUI programs as the original user
-            if self._is_running_as_root():
-                return self._execute_as_user(final_command)
-            else:
-                return self._execute_normally(final_command)
+            return self._execute_normally(final_command)
             
         except Exception as e:
             self.logger.error(f"❌ Error launching program '{exe_str}': {e}")
@@ -717,43 +722,6 @@ class MacroHandler:
         """
         import os
         return os.getuid() == 0
-    
-    def _execute_as_user(self, command):
-        """Execute command as the original user when running with sudo.
-        
-        Args:
-            command (str): Command to execute
-            
-        Returns:
-            bool: True if executed successfully
-        """
-        import os
-        
-        sudo_user = os.environ.get('SUDO_USER')
-        if not sudo_user:
-            self.logger.warning("⚠️ Running as root but no SUDO_USER found, executing normally")
-            return self._execute_normally(command)
-        
-        # Execute as the original user using sudo -u
-        user_command = f"sudo -u {sudo_user} DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/{self._get_user_id(sudo_user)} {command}"
-        
-        self.logger.info(f"🔄 Executing as user {sudo_user}: {command}")
-        
-        try:
-            process = subprocess.Popen(
-                user_command,
-                shell=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
-            )
-            
-            self.logger.info(f"✅ Program launched as user {sudo_user}: {command} (PID: {process.pid})")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to execute as user {sudo_user}: {e}")
-            return False
     
     def _execute_normally(self, command):
         """Execute command normally (not as root).
@@ -779,24 +747,6 @@ class MacroHandler:
         except Exception as e:
             self.logger.error(f"❌ Failed to execute normally: {e}")
             return False
-
-    
-    def _get_user_id(self, username):
-        """Get user ID for a username.
-        
-        Args:
-            username (str): Username to look up
-            
-        Returns:
-            int: User ID or 1000 as fallback
-        """
-        try:
-            import pwd
-            return pwd.getpwnam(username).pw_uid
-        except (ImportError, KeyError):
-            return 1000  # Common default user ID
-    
-
     
     def handle_command(self, data):
         """Process received UDP command.
@@ -807,30 +757,52 @@ class MacroHandler:
         Returns:
             bool: True if command was processed successfully
         """
-        try:
-            import webbrowser
-            action = data.get('action', '')
-            self.logger.info(f"📨 Processing command: {action}")
+        import webbrowser
+        action = data.get('action', '')
 
-            if action.startswith('key:'):
-                return self.execute_key_command(action)
-            elif action.startswith('exe:'):
-                return self.execute_program(action)
-            elif action.startswith('url:'):
-                url = action[4:]
-                self.logger.info(f"🌐 Opening URL: {url}")
-                try:
-                    webbrowser.open(url)
-                    return True
-                except Exception as e:
-                    self.logger.error(f"❌ Error opening URL '{url}': {e}")
-                    return False
-            else:
-                self.logger.warning(f"⚠️  Unknown action format: {action}")
+        if action.startswith('key:'):
+            return self.execute_key_command(action)
+        elif action.startswith('type:'):
+            text = action[5:]
+            self.logger.info(f"⌨️ Typing: {text}")
+            return self.type_text(text)
+        elif action.startswith('exe:'):
+            return self.execute_program(action)
+        elif action.startswith('url:'):
+            url = action[4:]
+            self.logger.info(f"🌐 Opening URL: {url}")
+            try:
+                webbrowser.open(url)
+                return True
+            except Exception as e:
+                self.logger.error(f"❌ Error opening URL '{url}': {e}")
                 return False
-
+        else:
+            self.logger.warning(f"⚠️  Unknown action format: {action}")
+            return False
+            
+    def type_text(self, text):
+        """Type a string sequentially using uinput or pynput."""
+        try:
+            for char in text:
+                # Use uinput if available
+                if hasattr(self, 'uinput_device') and self.uinput_device:
+                    uinput_key = self._get_uinput_key_code(char)
+                    if uinput_key:
+                        self.uinput_device.emit(uinput_key, 1)
+                        time.sleep(0.02)
+                        self.uinput_device.emit(uinput_key, 0)
+                        self.uinput_device.syn()
+                        continue
+                # Fallback to pynput
+                if self.keyboard_controller:
+                    self.keyboard_controller.press(char)
+                    time.sleep(0.02)
+                    self.keyboard_controller.release(char)
+            self.logger.info(f"✅ Typed: {text}")
+            return True
         except Exception as e:
-            self.logger.error(f"❌ Error handling command: {e}")
+            self.logger.error(f"❌ Error typing '{text}': {e}")
             return False
     
     def listen_for_commands(self):

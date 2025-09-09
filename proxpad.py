@@ -428,8 +428,8 @@ def launch_music_player():
         player = config.MUSIC_PLAYER
         app.logger.info(f"🎵 Launching music player: {player}")
 
-        # Support url:, exe:, key: prefixes
-        if player.startswith(('url:', 'exe:', 'key:')):
+        # Support url:, exe:, key:, type: prefixes
+        if player.startswith(('url:', 'exe:', 'key:', 'type:')):
             command = player
         else:
             command = f'exe:{player}'
@@ -459,9 +459,9 @@ def launch_music_player():
 @app.route('/api/run_macro', methods=['POST'])
 def run_macro():
     """Execute macro commands via broadcast or local execution.
-    
-    Supports both UDP broadcast commands (key:, exe:) and legacy local execution.
-    
+
+    Supports both UDP broadcast commands (key:, exe:, url:, type:).
+
     Returns:
         JSON response with execution status and output
     """
@@ -481,9 +481,9 @@ def run_macro():
             }), 400
         
         app.logger.info(f"⌨️ Executing macro: {command}")
-        
-        # Handle broadcast commands (key:, exe:, url: prefixes)
-        if command.startswith(('key:', 'exe:', 'url:')):
+
+        # Handle broadcast commands (key:, exe:, url:, type: prefixes)
+        if command.startswith(('key:', 'exe:', 'url:', 'type:')):
             return _execute_broadcast_macro(command)
         
         # Handle legacy local shell commands
