@@ -20,15 +20,16 @@ SAME_RESOURCES = [
     []   
 ]
 
-# If True, show confirmation dialog before sending actions
+# If True, show confirmation dialog before sending VM actions
 SHY = True
 
 # Tab bar positioning in landscape mode
 # False = tabs on left side, True = tabs on right side
 TABS_RIGHT = True
 
-# Default music player to launch (can be 'spotify', 'rhythmbox', 'vlc', 'audacious', etc.)
-MUSIC_PLAYER = "rhythmbox"
+# Default music player to launch
+MUSIC_PLAYER = "url:https://music.youtube.com"
+MUSIC_PLAYER_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/YouTube_Music_full_logo.svg/1024px-YouTube_Music_full_logo.svg.png"
 
 # Macro button configuration
 PAGE1_MACRO_ROWS = 3
@@ -36,13 +37,14 @@ PAGE1_MACRO_COLS = 4
 
 # Icons from https://icons.getbootstrap.com/
 # Bootstrap Icons uses `bi bi-<icon-name>`
+# Or you can use direct image URLs for custom icons
 # Button = [color, label, icon, action]
-MACRO1_1  = ["#f38ba8", "Copy", "bi bi-clipboard", "key:ctrl+c"]
+MACRO1_1  = ["#f38ba8", "VSCode", "https://code.visualstudio.com/assets/images/code-stable.png", "exe:code"]
 MACRO1_2  = ["#a6e3a1", "Paste", "bi bi-clipboard-plus", "key:ctrl+v"]
 MACRO1_3  = ["#89b4fa", "Undo", "bi bi-arrow-counterclockwise", "key:ctrl+z"]
 MACRO1_4  = ["#f9e2af", "Save", "bi bi-save", "key:ctrl+s"]
 MACRO1_5  = ["#cba6f7", "Screenshot", "bi bi-camera", "key:print_screen"]
-MACRO1_6  = ["#f38ba8", "YouTube", "bi bi-youtube", "url:https://youtube.com"]
+MACRO1_6  = ["#f38ba8", "YouTube", "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/YouTube_full-color_icon_%282024%29.svg/250px-YouTube_full-color_icon_%282024%29.svg.png", "url:https://youtube.com"]
 MACRO1_7  = ["#f5e0dc", "Lock PC", "bi bi-lock", "key:super+l"]
 MACRO1_8  = ["#bac2de", "Alt+Tab", "bi bi-arrow-repeat", "key:alt+tab"]
 MACRO1_9  = ["#fab387", "Win+R", "bi bi-window", "key:cmd+r"]
@@ -56,8 +58,9 @@ PAGE2_MACRO_COLS = 4
 
 # Icons from https://icons.getbootstrap.com/
 # Bootstrap Icons uses `bi bi-<icon-name>`
+# Or you can use direct image URLs for custom icons
 # Button = [color, label, icon, action]
-MACRO2_1  = ["#f38ba8", "Copy", "bi bi-clipboard", "key:ctrl+c"]
+MACRO2_1  = ["#f38ba8", "VSCode", "https://code.visualstudio.com/assets/images/code-stable.png", "exe:code"]
 MACRO2_2  = ["#a6e3a1", "Paste", "bi bi-clipboard-plus", "key:ctrl+v"]
 MACRO2_3  = ["#89b4fa", "Undo", "bi bi-arrow-counterclockwise", "key:ctrl+z"]
 MACRO2_4  = ["#f9e2af", "Save", "bi bi-save", "key:ctrl+s"]

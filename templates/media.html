@@ -266,7 +266,11 @@
             <span>Vol Up</span>
         </button>
         <button class="control-btn launch-btn" style="grid-column: 1 / span 3;" onclick="launchMusicPlayer()">
-            <i class="bi bi-music-player"></i>
+            {% if config.MUSIC_PLAYER_ICON %}
+                <img src="{{ config.MUSIC_PLAYER_ICON }}" alt="Music Player" style="height:2.2rem; width:auto; margin-bottom:4px; filter:drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+            {% else %}
+                <i class="bi bi-music-player"></i>
+            {% endif %}
             <span>Launch Player</span>
         </button>
     </div>
