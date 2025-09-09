@@ -173,6 +173,35 @@
     box-sizing: border-box;
     overflow: hidden;
   }
+  /* Visibility rules driven by button-grid.running / .stopped classes */
+  .button-grid.running .start { display: none !important; }
+  .button-grid.running .shutdown,
+  .button-grid.running .reboot,
+  .button-grid.running .stop,
+  .button-grid.running .reset { display: flex !important; }
+  .button-grid.running .button-row { display: grid !important; grid-template-columns: 1fr 1fr; gap: 2px; height: 100%; }
+  .button-grid.stopped .start { display: flex !important; }
+  .button-grid.stopped .shutdown,
+  .button-grid.stopped .reboot,
+  .button-grid.stopped .stop,
+  .button-grid.stopped .reset,
+  .button-grid.stopped .button-row { display: none !important; }
+  /* Explicit classes to control running vs stopped layout to avoid inline-style race conditions */
+  .button-grid.running {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: repeat(3, 1fr) !important;
+  }
+  .button-grid.stopped {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr !important;
+  }
+  /* When two-row-layout is used (no reboot button) we want a simple column flex layout */
+  .button-grid.two-row-layout.running {
+    display: flex !important;
+    flex-direction: column !important;
+  }
   .button-row {
     display: grid;
     gap: 2px;
@@ -521,6 +550,21 @@ function sendCommand(vmid, action) {
     .then(data => {
       if (data.status === 'success') {
         showVMOutput(`Success: VM ${data.vmid} ${data.action}`, true);
+        // Immediately update local DOM status to avoid stale layout until next poll
+        const vmBlock = document.getElementById('vm-' + vmid);
+        if (vmBlock) {
+          // Update data-status attribute so later logic can use it
+          vmBlock.setAttribute('data-status', action === 'start' || action === 'reboot' ? 'running' : (action === 'stop' || action === 'shutdown' ? 'stopped' : vmBlock.getAttribute('data-status')));
+          // Trigger immediate UI update
+          updateVMStatus([{ vmid: parseInt(vmid), status: vmBlock.getAttribute('data-status'), ram_gb: null, cpu_percent: null }]);
+          // Force a reflow and recalc grid to collapse any leftover gaps
+          vmBlock.style.display = 'none';
+          // read back to force reflow
+          // eslint-disable-next-line no-unused-vars
+          const _ = vmBlock.offsetHeight;
+          vmBlock.style.display = '';
+          setOptimalGrid();
+        }
       } else {
         showVMOutput(`Error: ${data.message || 'Unknown error'}`, false);
       }
@@ -567,29 +611,27 @@ function updateVMStatus(statuses) {
     const buttonRow = document.querySelector(`#vm-${vm.vmid} .button-row`);
 
     if(vm.status === 'running') {
+      if (buttonGrid) {
+        buttonGrid.classList.add('running');
+        buttonGrid.classList.remove('stopped');
+      }
       if(startBtn) startBtn.style.display = 'none';
       if(shutdownBtn) shutdownBtn.style.display = 'flex';
       if(rebootBtn) rebootBtn.style.display = 'flex';
       if(stopBtn) stopBtn.style.display = 'flex';
       if(resetBtn) resetBtn.style.display = 'flex';
       if(buttonRow) buttonRow.style.display = 'grid';
-      // 3 rows: shutdown, reboot, stop+reset row
-      if(buttonGrid) {
-        buttonGrid.style.gridTemplateColumns = '1fr';
-        buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
-      }
     } else {
+      if (buttonGrid) {
+        buttonGrid.classList.add('stopped');
+        buttonGrid.classList.remove('running');
+      }
       if(startBtn) startBtn.style.display = 'flex';
       if(shutdownBtn) shutdownBtn.style.display = 'none';
       if(rebootBtn) rebootBtn.style.display = 'none';
       if(stopBtn) stopBtn.style.display = 'none';
       if(resetBtn) resetBtn.style.display = 'none';
       if(buttonRow) buttonRow.style.display = 'none';
-      // 1 button: 1x1 grid
-      if(buttonGrid) {
-        buttonGrid.style.gridTemplateColumns = '1fr';
-        buttonGrid.style.gridTemplateRows = '1fr';
-      }
     }
   });
 }

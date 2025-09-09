@@ -68,7 +68,7 @@
             grid-template-columns: repeat(var(--macro-cols), 1fr);
             grid-template-rows: repeat(var(--macro-rows), 1fr);
             gap: 1px;
-            padding: 0;
+            padding: 12px 0px; /* remove horizontal gutter to decrease side margins */
             height: 100vh;
             height: calc(var(--vh, 1vh) * 100);
             box-sizing: border-box;
@@ -91,6 +91,13 @@
             height: 100%;
             min-height: 0;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Reduce horizontal padding for the two left-most macro buttons (m1/m2) */
+        .macro-grid > .macro-button:nth-child(1),
+        .macro-grid > .macro-button:nth-child(2) {
+            padding-left: 0px !important;
+            padding-right: 0px !important;
         }
 
         .macro-button:hover {
@@ -195,12 +202,12 @@
             .macro-grid {
                 grid-template-columns: repeat(var(--macro-cols), 1fr);
                 grid-template-rows: repeat(var(--macro-rows), 1fr);
-                gap: 5px;
-                padding: 5px;
+                gap: 6px;
+                padding: 8px 0px; /* vertical padding, no horizontal gutter on small screens */
             }
             
             .macro-button {
-                padding: 8px;
+                padding: 4px 2px; /* reduce horizontal button padding */
             }
 
             .macro-icon {

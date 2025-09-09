@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         /* Colors */
-        :root {
+    :root {
             --bg-primary: #1a1a1a;
             --bg-secondary: #2d2d2d;
             --text-primary: #ffffff;
@@ -29,11 +29,13 @@
             --launch-bg: #f38ba8;
             --launch-border: #f078a4;
             --launch-text: #1a1a1a;
+            --tabbar-height: 72px;
         }
 
         html, body {
             margin: 0;
-            padding: 0;
+            /* smaller visible bottom reserve so controls sit closer to the tab bar */
+            padding: 0 0 8px;
             height: 100vh;
             height: 100dvh;
             width: 100vw;
@@ -41,22 +43,27 @@
             color: var(--text-primary);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
-            position: fixed;
+            /* use relative positioning so children aren't clipped */
+            position: relative;
             top: 0;
             left: 0;
             box-sizing: border-box;
         }
 
-        .unified-grid {
-            width: 100vw;
-            height: 100dvh;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            gap: 8px;
-            box-sizing: border-box;
-            padding: 8px;
-        }
+            .unified-grid {
+                width: calc(100% - 8px); /* reduce left/right margins */
+                max-width: 100%;
+                min-height: calc(100dvh - 8px);
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                grid-auto-rows: minmax(56px, 1fr);
+                gap: 6px;
+                box-sizing: border-box;
+                padding: 0 4px; /* small horizontal padding to decrease large side gaps */
+                margin: 0 auto; /* center grid */
+                justify-items: stretch;
+                align-items: stretch;
+            }
 
         .control-btn {
             border: 1px solid var(--button-border);
@@ -75,6 +82,13 @@
             min-height: 0;
             box-shadow: 0 3px 10px rgba(0,0,0,0.4);
             text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        /* Reduce horizontal padding for the two left-most media buttons (m1/m2) - stronger selector */
+        .unified-grid > button.control-btn.media-btn:nth-child(1),
+        .unified-grid > button.control-btn.media-btn:nth-child(2) {
+            padding-left: 2px !important;
+            padding-right: 2px !important;
         }
 
         .control-btn:hover {
@@ -124,8 +138,8 @@
         /* Portrait mode optimizations */
         @media (orientation: portrait) {
             .unified-grid {
-                padding: 12px;
-                gap: 8px;
+                padding: 4px;
+                gap: 6px;
             }
             
             .control-btn i {
@@ -149,8 +163,8 @@
         /* Landscape mode optimizations */
         @media (orientation: landscape) {
             .unified-grid {
-                padding: 6px;
-                gap: 8px;
+                padding: 2px 4px; /* symmetric tighter gutters */
+                gap: 6px;
             }
             
             .control-btn {
@@ -173,14 +187,15 @@
             .launch-player-btn i {
                 font-size: 1.3rem;
             }
-        }        @media (max-width: 768px) {
+        }
+        @media (max-width: 768px) {
             body {
-                padding: 5px;
+                padding: 4px;
             }
             
             .unified-grid {
-                padding: 5px;
-                gap: 8px;
+                padding: 2px;
+                gap: 6px;
             }
             
             .control-btn {
