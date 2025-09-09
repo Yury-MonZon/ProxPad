@@ -13,3 +13,7 @@ requests>=2.28.0
 #   Ubuntu/Debian: sudo apt install python3-uinput
 #   Or: pip install python-uinput
 
+# Keyboard emulation
+pynput
+python-uinput
+

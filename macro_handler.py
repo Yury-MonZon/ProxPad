@@ -17,6 +17,7 @@ import socket
 import subprocess
 import threading
 import time
+import os
 
 # Optional dependencies with graceful fallbacks
 try:
@@ -29,15 +30,29 @@ except ImportError:
     Key = None
     KeyCode = None
 
-# Linux-specific uinput for Super key combinations
 UINPUT_AVAILABLE = False
 uinput = None
-if platform.system().lower() == 'linux':
+system = platform.system().lower()
+if system == 'linux':
     try:
         import uinput
         UINPUT_AVAILABLE = True
     except ImportError:
         pass
+
+if system == 'linux':
+    if UINPUT_AVAILABLE and os.path.exists('/dev/uinput') and os.access('/dev/uinput', os.W_OK):
+        print("[ProxPad] Using uinput for Linux key emulation (supports Super/Win combos)")
+    else:
+        print("[ProxPad] uinput not available or not accessible. Using pynput. WARNING: On Linux, special key combos (Win/Super) may not work without uinput.")
+        if not PYNPUT_AVAILABLE:
+            print("[ProxPad] ERROR: pynput not available. Please install pynput.")
+elif system == 'windows':
+    print("[ProxPad] Using pynput for Windows key emulation.")
+    if not PYNPUT_AVAILABLE:
+        print("[ProxPad] ERROR: pynput not available. Please install pynput.")
+else:
+    print(f"[ProxPad] Unknown OS: {system}. Key emulation may not work.")
 
 class MacroHandler:
     """Cross-platform macro handler for UDP broadcast commands."""
