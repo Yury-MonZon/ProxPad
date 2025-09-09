@@ -105,6 +105,10 @@ class MacroHandler:
             # Define all keys we might need for Super combinations
             uinput_keys = [
                 uinput.KEY_LEFTMETA,  # Super/Windows key
+                # Modifier keys
+                uinput.KEY_LEFTCTRL, uinput.KEY_RIGHTCTRL,
+                uinput.KEY_LEFTALT, uinput.KEY_RIGHTALT,
+                uinput.KEY_LEFTSHIFT, uinput.KEY_RIGHTSHIFT,
                 # Letters A-Z
                 uinput.KEY_A, uinput.KEY_B, uinput.KEY_C, uinput.KEY_D, uinput.KEY_E,
                 uinput.KEY_F, uinput.KEY_G, uinput.KEY_H, uinput.KEY_I, uinput.KEY_J,
@@ -112,9 +116,35 @@ class MacroHandler:
                 uinput.KEY_P, uinput.KEY_Q, uinput.KEY_R, uinput.KEY_S, uinput.KEY_T,
                 uinput.KEY_U, uinput.KEY_V, uinput.KEY_W, uinput.KEY_X, uinput.KEY_Y,
                 uinput.KEY_Z,
+                # Digits 0-9
+                uinput.KEY_0, uinput.KEY_1, uinput.KEY_2, uinput.KEY_3, uinput.KEY_4,
+                uinput.KEY_5, uinput.KEY_6, uinput.KEY_7, uinput.KEY_8, uinput.KEY_9,
+                # Function keys
+                uinput.KEY_F1, uinput.KEY_F2, uinput.KEY_F3, uinput.KEY_F4, uinput.KEY_F5,
+                uinput.KEY_F6, uinput.KEY_F7, uinput.KEY_F8, uinput.KEY_F9, uinput.KEY_F10,
+                uinput.KEY_F11, uinput.KEY_F12,
+                # Arrow keys
+                uinput.KEY_UP, uinput.KEY_DOWN, uinput.KEY_LEFT, uinput.KEY_RIGHT,
                 # Common special keys
-                uinput.KEY_ENTER, uinput.KEY_TAB, uinput.KEY_SPACE
+                uinput.KEY_ENTER, uinput.KEY_TAB, uinput.KEY_SPACE, uinput.KEY_ESC,
+                uinput.KEY_BACKSPACE, uinput.KEY_DELETE, uinput.KEY_HOME, uinput.KEY_END,
+                uinput.KEY_PAGEUP, uinput.KEY_PAGEDOWN, uinput.KEY_CAPSLOCK,
+                uinput.KEY_NUMLOCK, uinput.KEY_SCROLLLOCK, uinput.KEY_INSERT,
+                uinput.KEY_MENU, uinput.KEY_PAUSE, uinput.KEY_PRINT,
+                # Symbol and punctuation keys
+                uinput.KEY_MINUS, uinput.KEY_EQUAL, uinput.KEY_LEFTBRACE, uinput.KEY_RIGHTBRACE,
+                uinput.KEY_BACKSLASH, uinput.KEY_SEMICOLON, uinput.KEY_APOSTROPHE,
+                uinput.KEY_GRAVE, uinput.KEY_COMMA, uinput.KEY_DOT, uinput.KEY_SLASH,
+                # Media keys
+                getattr(uinput, 'KEY_VOLUMEUP', None),
+                getattr(uinput, 'KEY_VOLUMEDOWN', None),
+                getattr(uinput, 'KEY_MUTE', None),
+                getattr(uinput, 'KEY_PLAYPAUSE', None),
+                getattr(uinput, 'KEY_NEXTSONG', None),
+                getattr(uinput, 'KEY_PREVIOUSSONG', None)
             ]
+            # Remove any None values (if a key is not available on this system)
+            uinput_keys = [k for k in uinput_keys if k is not None]
             
             self.uinput_device = uinput.Device(uinput_keys)
             self.logger.info("✅ uinput device initialized for Super key combinations")
@@ -136,18 +166,11 @@ class MacroHandler:
         Returns:
             bool: True if command was executed successfully
         """
-        if not self.keyboard_controller:
-            self.logger.error("❌ Keyboard controller not available - media keys disabled")
-            return False
-        
-        # Media key mappings
+        # Media key mappings (pynput and uinput)
         media_mappings = {
-            # Play/Pause variations
             'play': Key.media_play_pause,
             'media_play_pause': Key.media_play_pause,
             'playpause': Key.media_play_pause,
-            
-            # Track navigation
             'next': Key.media_next,
             'media_next': Key.media_next,
             'next_track': Key.media_next,
@@ -155,8 +178,6 @@ class MacroHandler:
             'prev': Key.media_previous,
             'media_previous': Key.media_previous,
             'prev_track': Key.media_previous,
-            
-            # Volume controls
             'volume_up': Key.media_volume_up,
             'vol_up': Key.media_volume_up,
             'volume_down': Key.media_volume_down,
@@ -164,17 +185,50 @@ class MacroHandler:
             'mute': Key.media_volume_mute,
             'volume_mute': Key.media_volume_mute,
         }
-        
+        uinput_media_mappings = {
+            'play': getattr(uinput, 'KEY_PLAYPAUSE', None),
+            'media_play_pause': getattr(uinput, 'KEY_PLAYPAUSE', None),
+            'playpause': getattr(uinput, 'KEY_PLAYPAUSE', None),
+            'next': getattr(uinput, 'KEY_NEXTSONG', None),
+            'media_next': getattr(uinput, 'KEY_NEXTSONG', None),
+            'next_track': getattr(uinput, 'KEY_NEXTSONG', None),
+            'previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+            'prev': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+            'media_previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+            'prev_track': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+            'volume_up': getattr(uinput, 'KEY_VOLUMEUP', None),
+            'vol_up': getattr(uinput, 'KEY_VOLUMEUP', None),
+            'volume_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
+            'vol_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
+            'mute': getattr(uinput, 'KEY_MUTE', None),
+            'volume_mute': getattr(uinput, 'KEY_MUTE', None),
+        }
+        # Try uinput first if available
+        if hasattr(self, 'uinput_device') and self.uinput_device:
+            uinput_key = uinput_media_mappings.get(key_str)
+            if uinput_key:
+                try:
+                    self.uinput_device.emit(uinput_key, 1)
+                    time.sleep(0.02)
+                    self.uinput_device.emit(uinput_key, 0)
+                    self.uinput_device.syn()
+                    self.logger.info(f"🎵 Media key executed via uinput: {key_str}")
+                    return True
+                except Exception as e:
+                    self.logger.error(f"❌ Media key error via uinput for '{key_str}': {e}")
+                    return False
+        # Fallback to pynput
+        if not self.keyboard_controller:
+            self.logger.error("❌ Keyboard controller not available - media keys disabled")
+            return False
         media_key = media_mappings.get(key_str)
         if not media_key:
             return False
-            
         try:
             self.keyboard_controller.press(media_key)
             self.keyboard_controller.release(media_key)
-            self.logger.info(f"🎵 Media key executed: {key_str}")
+            self.logger.info(f"🎵 Media key executed via pynput: {key_str}")
             return True
-            
         except Exception as e:
             self.logger.error(f"❌ Media key error for '{key_str}': {e}")
             return False
@@ -239,23 +293,27 @@ class MacroHandler:
         # Try media commands first
         if self.execute_media_command(key_str):
             return True
-        
-        # Get key mapping
+        # Use uinput for all keys if available
+        if hasattr(self, 'uinput_device') and self.uinput_device:
+            uinput_key = self._get_uinput_key_code(key_str)
+            if uinput_key:
+                self.uinput_device.emit(uinput_key, 1)
+                time.sleep(0.02)
+                self.uinput_device.emit(uinput_key, 0)
+                self.uinput_device.syn()
+                self.logger.info(f"🔑 uinput key pressed: {key_str}")
+                return True
+        # Fallback to pynput
         key_mapping = self._get_key_mapping()
-        
-        # Check if it's a mapped special key
         if key_str in key_mapping:
             key = key_mapping[key_str]
             self._press_and_release_key(key)
             self.logger.info(f"🔑 Special key pressed: {key_str}")
             return True
-        
-        # Handle single characters (a-z, 0-9, symbols)
         if len(key_str) == 1:
             self._press_and_release_key(key_str)
             self.logger.info(f"🔤 Character pressed: {key_str}")
             return True
-            
         self.logger.warning(f"⚠️  Unknown key: {key_str}")
         return False
     
@@ -301,8 +359,22 @@ class MacroHandler:
         Args:
             key: Key object or character to press
         """
+        # Use uinput if available and initialized
+        if hasattr(self, 'uinput_device') and self.uinput_device:
+            uinput_key = None
+            if isinstance(key, str) and len(key) == 1:
+                uinput_key = self._get_uinput_key_code(key)
+            elif hasattr(key, 'name'):
+                uinput_key = self._get_uinput_key_code(key.name)
+            if uinput_key:
+                self.uinput_device.emit(uinput_key, 1)
+                time.sleep(0.02)
+                self.uinput_device.emit(uinput_key, 0)
+                self.uinput_device.syn()
+                return
+        # Fallback to pynput
         self.keyboard_controller.press(key)
-        time.sleep(0.02)  # Brief hold time
+        time.sleep(0.02)
         self.keyboard_controller.release(key)
     
     def _execute_key_combination(self, key_str):

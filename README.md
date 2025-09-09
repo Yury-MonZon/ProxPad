@@ -1,6 +1,6 @@
 # ProxPad - Proxmox VM Management Interface
 
-ProxPad is a web-based interface for managing Proxmox virtual machines with a focus on mobile-friendly design and resource conflict prevention.
+ProxPad is a web-based macropad interface for managing Proxmox virtual machines with a focus on mobile-friendly design and resource conflict prevention.
 
 ## Screenshots
 
