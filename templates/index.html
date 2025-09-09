@@ -287,7 +287,14 @@
         <div class="tab-content" id="mainTabContent">
             <!-- Proxmox Tab -->
             <div class="tab-pane fade show active" id="proxmox" role="tabpanel" aria-labelledby="proxmox-tab">
+                {% if proxmox_enabled %}
                 <iframe src="/proxmox" class="content-frame" title="Proxmox Controls"></iframe>
+                {% else %}
+                <div class="p-5 text-center text-secondary">
+                    <h4>No VM data available</h4>
+                    <p>Proxmox integration is disabled. VM controls and stats are not available.</p>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Media Tab -->

@@ -20,6 +20,8 @@ from flask import Flask, jsonify, render_template, request
 from proxmoxer import ProxmoxAPI
 
 import config
+# Always define PROXMOX_ENABLED before any usage
+PROXMOX_ENABLED = False
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -137,13 +139,19 @@ def _validate_proxmox_permissions() -> Tuple[bool, str]:
         return False, error_msg
 
 # Initialize Proxmox connection at startup
-connection_success, connection_message = initialize_proxmox_connection()
-if not connection_success:
-    app.logger.critical(f"💥 Startup failed: {connection_message}")
-    print(f"❌ CRITICAL: {connection_message}")
-    exit(1)
 
-app.logger.info("🚀 ProxPad initialization completed successfully")
+
+# Only attempt Proxmox connection if token secret is set
+if hasattr(config, 'PROXMOX_TOKEN_SECRET') and config.PROXMOX_TOKEN_SECRET:
+    connection_success, connection_message = initialize_proxmox_connection()
+    if connection_success:
+        PROXMOX_ENABLED = True
+        app.logger.info("� ProxPad initialization completed successfully")
+    else:
+        app.logger.critical(f"💥 Proxmox disabled: {connection_message}")
+        print(f"❌ Proxmox disabled: {connection_message}")
+else:
+    app.logger.info("Proxmox token secret is empty: Proxmox features disabled.")
 
 # Configuration constants
 
@@ -158,71 +166,66 @@ def format_ram(ram_bytes):
 
 @app.route('/')
 def index() -> str:
-    """Main dashboard showing VM status and controls.
-    
-    Returns:
-        Rendered HTML template with VM information
-    """
-    try:
-        app.logger.info("📊 Loading main dashboard")
-        vms_data = _get_visible_vms_data()
-        
-        return render_template(
-            'index.html', 
-            vms=vms_data, 
-            shy=SHY, 
-            hide_reboot=HIDE_REBOOT,
-            config=config
-        )
-        
-    except Exception as e:
-        app.logger.error(f"❌ Dashboard error: {e}")
-        return f"Dashboard error: {e}", 500
+    """Main dashboard showing VM status and controls."""
+    app.logger.info("📊 Loading main dashboard")
+    vms_data = []
+    error_message = None
+    if PROXMOX_ENABLED:
+        try:
+            vms_data = _get_visible_vms_data()
+        except Exception as e:
+            app.logger.error(f"❌ Dashboard error: {e}")
+            error_message = str(e)
+    return render_template(
+        'index.html',
+        vms=vms_data,
+        shy=SHY,
+        hide_reboot=HIDE_REBOOT,
+        config=config,
+        proxmox_enabled=PROXMOX_ENABLED,
+        error_message=error_message
+    )
 
 def _get_visible_vms_data() -> List[Dict[str, Any]]:
-    """Get VM data with resource group visibility filtering.
-    
+    """
+    Get VM data with resource group visibility filtering.
     Returns:
         List of VM dictionaries with status information
     """
+    if not PROXMOX_ENABLED:
+        app.logger.info("Proxmox is disabled or connection failed: no VM data available.")
+        return []
     try:
         # Get primary node
         nodes = proxmox.nodes.get()
         if not nodes:
             raise Exception("No Proxmox nodes available")
-        
         node = nodes[0]['node']
-        
         # Collect all VM statuses and information
         all_vm_statuses = {}
         for vmid in VM_IDS:
             vm_info = _get_vm_info(node, vmid)
             all_vm_statuses[vmid] = vm_info
-        
         # Apply resource group visibility rules
         hidden_vms = _determine_hidden_vms(all_vm_statuses)
-        
         # Build visible VM list
         visible_vms = [
-            all_vm_statuses[vmid] 
-            for vmid in VM_IDS 
+            all_vm_statuses[vmid]
+            for vmid in VM_IDS
             if vmid not in hidden_vms
         ]
-        
         app.logger.info(f"📋 Dashboard loaded: {len(visible_vms)} VMs visible")
         return visible_vms
-        
     except Exception as e:
         app.logger.error(f"❌ Failed to get VM data: {e}")
-        raise
+        return []
 
 def _get_vm_info(node: str, vmid: int) -> Dict[str, Any]:
-    """Get comprehensive information for a single VM.
-    
+    """
+    Get comprehensive information for a single VM.
     Args:
         node: Proxmox node name
         vmid: VM identifier
-        
     Returns:
         Dictionary with VM status and resource information
     """

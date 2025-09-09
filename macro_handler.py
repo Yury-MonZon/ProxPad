@@ -76,6 +76,9 @@ class MacroHandler:
         self.uinput_device = None
         
         self._initialize_controllers()
+        # Compute key mappings once
+        self.key_mapping = self._get_key_mapping()
+        self.modifier_mapping = self._get_modifier_mapping()
     
     def _setup_logging(self):
         """Setup logging configuration."""
@@ -101,57 +104,50 @@ class MacroHandler:
         self.logger.info(f"MacroHandler initialized for {self.system} platform")
     
     def _initialize_uinput(self):
-        """Initialize uinput device for Linux Super key combinations."""
+        """Initialize uinput device with all needed key codes (explicit list)."""
         try:
-            # Define all keys we might need for Super combinations
-            uinput_keys = [
-                uinput.KEY_LEFTMETA,  # Super/Windows key
-                # Modifier keys
+            # Explicitly list all common keys, modifiers, special, and media keys
+            uinput_keys = []
+            # Modifiers
+            uinput_keys += [
                 uinput.KEY_LEFTCTRL, uinput.KEY_RIGHTCTRL,
                 uinput.KEY_LEFTALT, uinput.KEY_RIGHTALT,
                 uinput.KEY_LEFTSHIFT, uinput.KEY_RIGHTSHIFT,
-                # Letters A-Z
-                uinput.KEY_A, uinput.KEY_B, uinput.KEY_C, uinput.KEY_D, uinput.KEY_E,
-                uinput.KEY_F, uinput.KEY_G, uinput.KEY_H, uinput.KEY_I, uinput.KEY_J,
-                uinput.KEY_K, uinput.KEY_L, uinput.KEY_M, uinput.KEY_N, uinput.KEY_O,
-                uinput.KEY_P, uinput.KEY_Q, uinput.KEY_R, uinput.KEY_S, uinput.KEY_T,
-                uinput.KEY_U, uinput.KEY_V, uinput.KEY_W, uinput.KEY_X, uinput.KEY_Y,
-                uinput.KEY_Z,
-                # Digits 0-9
-                uinput.KEY_0, uinput.KEY_1, uinput.KEY_2, uinput.KEY_3, uinput.KEY_4,
-                uinput.KEY_5, uinput.KEY_6, uinput.KEY_7, uinput.KEY_8, uinput.KEY_9,
-                # Function keys
-                uinput.KEY_F1, uinput.KEY_F2, uinput.KEY_F3, uinput.KEY_F4, uinput.KEY_F5,
-                uinput.KEY_F6, uinput.KEY_F7, uinput.KEY_F8, uinput.KEY_F9, uinput.KEY_F10,
-                uinput.KEY_F11, uinput.KEY_F12,
-                # Arrow keys
-                uinput.KEY_UP, uinput.KEY_DOWN, uinput.KEY_LEFT, uinput.KEY_RIGHT,
-                # Common special keys
+                uinput.KEY_LEFTMETA, uinput.KEY_RIGHTMETA,
+            ]
+            # Letters
+            uinput_keys += [getattr(uinput, f'KEY_{chr(i).upper()}') for i in range(ord('a'), ord('z')+1)]
+            # Digits
+            uinput_keys += [getattr(uinput, f'KEY_{i}') for i in range(0, 10)]
+            # Function keys
+            uinput_keys += [getattr(uinput, f'KEY_F{i}') for i in range(1, 21)]
+            # Arrow keys
+            uinput_keys += [uinput.KEY_UP, uinput.KEY_DOWN, uinput.KEY_LEFT, uinput.KEY_RIGHT]
+            # Common special keys
+            uinput_keys += [
                 uinput.KEY_ENTER, uinput.KEY_TAB, uinput.KEY_SPACE, uinput.KEY_ESC,
                 uinput.KEY_BACKSPACE, uinput.KEY_DELETE, uinput.KEY_HOME, uinput.KEY_END,
                 uinput.KEY_PAGEUP, uinput.KEY_PAGEDOWN, uinput.KEY_CAPSLOCK,
                 uinput.KEY_NUMLOCK, uinput.KEY_SCROLLLOCK, uinput.KEY_INSERT,
                 uinput.KEY_MENU, uinput.KEY_PAUSE, uinput.KEY_PRINT,
-                # Symbol and punctuation keys
+            ]
+            # Symbol and punctuation keys
+            uinput_keys += [
                 uinput.KEY_MINUS, uinput.KEY_EQUAL, uinput.KEY_LEFTBRACE, uinput.KEY_RIGHTBRACE,
                 uinput.KEY_BACKSLASH, uinput.KEY_SEMICOLON, uinput.KEY_APOSTROPHE,
                 uinput.KEY_GRAVE, uinput.KEY_COMMA, uinput.KEY_DOT, uinput.KEY_SLASH,
-                # Media keys
-                getattr(uinput, 'KEY_VOLUMEUP', None),
-                getattr(uinput, 'KEY_VOLUMEDOWN', None),
-                getattr(uinput, 'KEY_MUTE', None),
-                getattr(uinput, 'KEY_PLAYPAUSE', None),
-                getattr(uinput, 'KEY_NEXTSONG', None),
-                getattr(uinput, 'KEY_PREVIOUSSONG', None)
             ]
-            # Remove any None values (if a key is not available on this system)
-            uinput_keys = [k for k in uinput_keys if k is not None]
-            
+            # Media keys (if available)
+            for media_key in ['KEY_VOLUMEUP', 'KEY_VOLUMEDOWN', 'KEY_MUTE', 'KEY_PLAYPAUSE', 'KEY_NEXTSONG', 'KEY_PREVIOUSSONG']:
+                key_code = getattr(uinput, media_key, None)
+                if key_code:
+                    uinput_keys.append(key_code)
+            # Remove duplicates
+            uinput_keys = list(dict.fromkeys(uinput_keys))
             self.uinput_device = uinput.Device(uinput_keys)
-            self.logger.info("✅ uinput device initialized for Super key combinations")
-            
+            self.logger.info(f"✅ uinput device initialized with {len(uinput_keys)} keys (explicit list)")
         except PermissionError:
-            self.logger.warning("⚠️  uinput requires sudo privileges for Super key combinations")
+            self.logger.warning("⚠️  uinput requires sudo privileges for key emulation")
             self.logger.warning("   Run with: sudo python macro_handler.py")
             self.uinput_device = None
         except Exception as e:
@@ -287,14 +283,24 @@ class MacroHandler:
         
         Args:
             key_str (str): Single key to press
-            
+        
         Returns:
             bool: True if key was pressed successfully
         """
         # Try media commands first
         if self.execute_media_command(key_str):
             return True
-        # Use uinput for all keys if available
+        # Always use uinput for print_screen if available
+        if key_str in ('print_screen', 'print') and hasattr(self, 'uinput_device') and self.uinput_device:
+            uinput_key = self._get_uinput_key_code(key_str)
+            if uinput_key:
+                self.uinput_device.emit(uinput_key, 1)
+                time.sleep(0.02)
+                self.uinput_device.emit(uinput_key, 0)
+                self.uinput_device.syn()
+                self.logger.info(f"🔑 uinput key pressed: {key_str}")
+                return True
+        # Use uinput for all other keys if available
         if hasattr(self, 'uinput_device') and self.uinput_device:
             uinput_key = self._get_uinput_key_code(key_str)
             if uinput_key:
@@ -305,9 +311,8 @@ class MacroHandler:
                 self.logger.info(f"🔑 uinput key pressed: {key_str}")
                 return True
         # Fallback to pynput
-        key_mapping = self._get_key_mapping()
-        if key_str in key_mapping:
-            key = key_mapping[key_str]
+        if key_str in self.key_mapping:
+            key = self.key_mapping[key_str]
             self._press_and_release_key(key)
             self.logger.info(f"🔑 Special key pressed: {key_str}")
             return True
@@ -467,12 +472,10 @@ class MacroHandler:
         Returns:
             list: List of key objects to press
         """
-        modifier_mapping = self._get_modifier_mapping()
         keys_to_press = []
-        
         for key in keys:
-            if key in modifier_mapping:
-                mapped_key = modifier_mapping[key]
+            if key in self.modifier_mapping:
+                mapped_key = self.modifier_mapping[key]
                 keys_to_press.append(mapped_key)
                 self.logger.debug(f"Mapped modifier '{key}' -> {mapped_key}")
             elif len(key) == 1:
@@ -487,7 +490,6 @@ class MacroHandler:
                 else:
                     self.logger.warning(f"⚠️  Unknown key in combination: {key}")
                     return []
-        
         return keys_to_press
     
     def _get_modifier_mapping(self):
@@ -649,8 +651,41 @@ class MacroHandler:
         return super_key, other_key
     
     def _get_uinput_key_code(self, key_str):
-        """Get uinput key code for a character (letters a-z)."""
+        """Get uinput key code for a character or special key."""
+        # Letters a-z
         char_to_uinput = {chr(i): getattr(uinput, f'KEY_{chr(i).upper()}', None) for i in range(ord('a'), ord('z')+1)}
+        # Digits 0-9
+        char_to_uinput.update({str(i): getattr(uinput, f'KEY_{i}', None) for i in range(0, 10)})
+        # Special keys
+        special_keys = {
+            'enter': uinput.KEY_ENTER,
+            'tab': uinput.KEY_TAB,
+            'space': uinput.KEY_SPACE,
+            'esc': uinput.KEY_ESC,
+            'escape': uinput.KEY_ESC,
+            'backspace': uinput.KEY_BACKSPACE,
+            'delete': uinput.KEY_DELETE,
+            'home': uinput.KEY_HOME,
+            'end': uinput.KEY_END,
+            'page_up': uinput.KEY_PAGEUP,
+            'page_down': uinput.KEY_PAGEDOWN,
+            'caps_lock': uinput.KEY_CAPSLOCK,
+            'num_lock': uinput.KEY_NUMLOCK,
+            'scroll_lock': uinput.KEY_SCROLLLOCK,
+            'insert': uinput.KEY_INSERT,
+            'menu': uinput.KEY_MENU,
+            'pause': uinput.KEY_PAUSE,
+            'print_screen': uinput.KEY_PRINT,
+            'print': uinput.KEY_PRINT,
+            'up': uinput.KEY_UP,
+            'down': uinput.KEY_DOWN,
+            'left': uinput.KEY_LEFT,
+            'right': uinput.KEY_RIGHT,
+        }
+        char_to_uinput.update(special_keys)
+        # Function keys f1-f20
+        for i in range(1, 21):
+            char_to_uinput[f'f{i}'] = getattr(uinput, f'KEY_F{i}', None)
         return char_to_uinput.get(key_str)
     
     def _perform_uinput_combination(self, uinput_key, key_name):
@@ -782,23 +817,114 @@ class MacroHandler:
             return False
             
     def type_text(self, text):
-        """Type a string sequentially using uinput or pynput."""
+        """Type a string sequentially using uinput or pynput, handling shift for uppercase and symbols."""
+        # Mapping for shift+number and common symbols
+        shift_map = {
+            '!': '1', '@': '2', '#': '3', '$': '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0',
+            '_': '-', '+': '=', '{': '[', '}': ']', '|': '\\', ':': ';', '"': '\'', '<': ',', '>': '.', '?': '/', '~': '`'
+        }
+        # uinput symbol mapping
+        uinput_symbol_map = {
+            '-': uinput.KEY_MINUS,
+            '_': uinput.KEY_MINUS,
+            '=': uinput.KEY_EQUAL,
+            '+': uinput.KEY_EQUAL,
+            '[': uinput.KEY_LEFTBRACE,
+            '{': uinput.KEY_LEFTBRACE,
+            ']': uinput.KEY_RIGHTBRACE,
+            '}': uinput.KEY_RIGHTBRACE,
+            '\\': uinput.KEY_BACKSLASH,
+            '|': uinput.KEY_BACKSLASH,
+            ';': uinput.KEY_SEMICOLON,
+            ':': uinput.KEY_SEMICOLON,
+            "'": uinput.KEY_APOSTROPHE,
+            '"': uinput.KEY_APOSTROPHE,
+            ',': uinput.KEY_COMMA,
+            '<': uinput.KEY_COMMA,
+            '.': uinput.KEY_DOT,
+            '>': uinput.KEY_DOT,
+            '/': uinput.KEY_SLASH,
+            '?': uinput.KEY_SLASH,
+            '`': uinput.KEY_GRAVE,
+            '~': uinput.KEY_GRAVE,
+            ' ': uinput.KEY_SPACE,
+        }
+        direct_symbols = set('-_=+[]{};:\',.<>/?`~ \'"| ')
         try:
             for char in text:
+                use_shift = False
+                base_char = char
+                # Uppercase letters
+                if 'A' <= char <= 'Z':
+                    use_shift = True
+                    base_char = char.lower()
+                # Shifted symbols
+                elif char in shift_map:
+                    use_shift = True
+                    base_char = shift_map[char]
+                # Direct symbols (no shift)
+                elif char in direct_symbols:
+                    base_char = char
+                    use_shift = False
                 # Use uinput if available
                 if hasattr(self, 'uinput_device') and self.uinput_device:
-                    uinput_key = self._get_uinput_key_code(char)
-                    if uinput_key:
-                        self.uinput_device.emit(uinput_key, 1)
+                    if use_shift:
+                        self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 1)
+                        time.sleep(0.01)
+                    # Special handling for literal backslash
+                    if char == '\\':
+                        keycode = uinput.KEY_BACKSLASH
+                        self.uinput_device.emit(keycode, 1)
                         time.sleep(0.02)
-                        self.uinput_device.emit(uinput_key, 0)
+                        self.uinput_device.emit(keycode, 0)
                         self.uinput_device.syn()
-                        continue
+                    elif char in uinput_symbol_map:
+                        keycode = uinput_symbol_map[char]
+                        self.uinput_device.emit(keycode, 1)
+                        time.sleep(0.02)
+                        self.uinput_device.emit(keycode, 0)
+                        self.uinput_device.syn()
+                    else:
+                        uinput_key = self._get_uinput_key_code(base_char)
+                        if uinput_key:
+                            self.uinput_device.emit(uinput_key, 1)
+                            time.sleep(0.02)
+                            self.uinput_device.emit(uinput_key, 0)
+                            self.uinput_device.syn()
+                    if use_shift:
+                        self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 0)
+                        self.uinput_device.syn()
+                    continue
                 # Fallback to pynput
                 if self.keyboard_controller:
-                    self.keyboard_controller.press(char)
-                    time.sleep(0.02)
-                    self.keyboard_controller.release(char)
+                    try:
+                        if use_shift:
+                            with self.keyboard_controller.pressed(Key.shift):
+                                self.keyboard_controller.press(base_char)
+                                time.sleep(0.02)
+                                self.keyboard_controller.release(base_char)
+                        else:
+                            # Special handling for literal backslash
+                            if char == '\\':
+                                from pynput.keyboard import KeyCode
+                                keycode = KeyCode.from_char('\\')
+                                self.keyboard_controller.press(keycode)
+                                time.sleep(0.02)
+                                self.keyboard_controller.release(keycode)
+                            else:
+                                self.keyboard_controller.press(base_char)
+                                time.sleep(0.02)
+                                self.keyboard_controller.release(base_char)
+                    except Exception:
+                        # Try KeyCode for symbols that fail
+                        try:
+                            from pynput.keyboard import KeyCode
+                            keycode = KeyCode.from_char(char)
+                            self.keyboard_controller.press(keycode)
+                            time.sleep(0.02)
+                            self.keyboard_controller.release(keycode)
+                        except Exception:
+                            self.logger.warning(f"⚠️ Could not type symbol: {char}")
             self.logger.info(f"✅ Typed: {text}")
             return True
         except Exception as e:
