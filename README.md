@@ -16,6 +16,13 @@ ProxPad is a web-based macropad interface for managing Proxmox virtual machines 
 - **Quick Actions**: Start, stop, restart, shutdown, reboot VMs
 - **Confirmation Dialogs**: Optional before executing VM actions
 - **Auto-refresh**: Page updates when VM visibility changes
+- **Macro Pages (M1, M2)**: Customizable button grids for launching apps, sending key combos, or running commands
+- **Media Tab**: Quick access to music/video player with configurable icon and URL
+- **Screensaver Overlay**: Moving clock, 24h/seconds/color/blank options, prevents accidental clicks
+- **Catppuccin-Inspired Pastel Colors**: Soft, readable color palette for all macro buttons
+- **Tab Bar Positioning**: Tabs can be placed on left or right in landscape mode
+- **Easy Configuration**: All settings (macros, screensaver, tab position, etc.) in `config.py`
+- **Custom Icons**: Use Bootstrap icons or any image URL for macro buttons
 
 ## Prerequisites
 - Proxmox VE server
