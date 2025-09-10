@@ -504,12 +504,12 @@ def _execute_broadcast_macro(command: str):
         app.logger.info(f"✅ Broadcast macro sent: {command}")
         return jsonify({
             'success': True,
-            'output': f'Broadcast command sent: {command}',
+            'output': f'Command sent: {command}',
             'error': '',
             'return_code': 0
         })
     else:
-        app.logger.error(f"❌ Failed to send broadcast macro: {command}")
+        app.logger.error(f"❌ Failed to send macro: {command}")
         return jsonify({
             'success': False,
             'output': '',
