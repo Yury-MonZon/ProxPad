@@ -391,5 +391,11 @@
         window.addEventListener('resize', setViewportHeight);
         window.addEventListener('orientationchange', setViewportHeight);
     </script>
+        <script>
+            // notify parent of activity to reset screensaver
+            function postActivity(){ try{ parent.postMessage('proxpad-activity', '*'); }catch(e){} }
+            ['click','touchstart','keydown','mousemove'].forEach(e=>window.addEventListener(e, postActivity, {passive:true}));
+            window.addEventListener('load', postActivity);
+        </script>
 </body>
 </html>

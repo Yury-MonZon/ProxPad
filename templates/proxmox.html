@@ -382,6 +382,30 @@
       gap: 4px;
     }
   }
+  /* Ensure consistent button heights across grid and flex layouts */
+  .button-grid {
+    /* make new rows default to equal fraction heights */
+    grid-auto-rows: 1fr;
+  }
+  .button-grid > button,
+  .button-grid > .button-row,
+  .button-row > button {
+    height: 100% !important;
+    min-height: 0 !important;
+    box-sizing: border-box;
+  }
+  /* When using the two-row layout, enforce a 2-row grid so top and bottom share equal height */
+  .button-grid.two-row-layout.running {
+    display: grid !important;
+    grid-template-rows: 1fr 1fr !important;
+    height: 100% !important;
+  }
+  .button-grid.two-row-layout.running > button,
+  .button-grid.two-row-layout.running > .button-row {
+    height: 100% !important;
+    min-height: 0 !important;
+    box-sizing: border-box;
+  }
 </style>
 </head>
 <body>
@@ -397,20 +421,20 @@
       {% endif %}
     </div>
     <div class="button-grid {% if vm.status == 'running' and hide_reboot %}two-row-layout{% endif %}" style="{% if vm.status == 'running' and hide_reboot %}display: flex; flex-direction: column; height: 100%;{% else %}grid-template-columns: 1fr; grid-template-rows: {% if vm.status == 'running' %}repeat(3, 1fr){% else %}1fr{% endif %};{% endif %}">
-      <button id="start-{{ vm.vmid }}" class="start" onclick="confirmAction({{ vm.vmid }}, 'start')" aria-label="Start VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}none{% else %}flex{% endif %};">
+  <button id="start-{{ vm.vmid }}" class="start" onclick="confirmAction({{ vm.vmid }}, 'start')" aria-label="Start VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}none{% else %}flex{% endif %};">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z"/>
         </svg>
         <span>Start</span>
       </button>
-      <button id="shutdown-{{ vm.vmid }}" class="shutdown" onclick="confirmAction({{ vm.vmid }}, 'shutdown')" aria-label="Shutdown VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %}; {% if vm.status == 'running' and hide_reboot %}flex: 1; height: auto;{% endif %}">
+  <button id="shutdown-{{ vm.vmid }}" class="shutdown" onclick="confirmAction({{ vm.vmid }}, 'shutdown')" aria-label="Shutdown VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %}; {% if vm.status == 'running' and hide_reboot %}flex: 1; height: auto;{% endif %}">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M16.56 5.44L15.11 6.89C16.84 7.94 18 9.83 18 12A6 6 0 0 1 6 12C6 9.83 7.16 7.94 8.88 6.88L7.44 5.44C5.36 6.88 4 9.28 4 12A8 8 0 0 0 20 12C20 9.28 18.64 6.88 16.56 5.44M13 3H11V13H13"/>
         </svg>
         <span>Shutdown</span>
       </button>
       {% if not hide_reboot %}
-      <button id="reboot-{{ vm.vmid }}" class="reboot" onclick="confirmAction({{ vm.vmid }}, 'reboot')" aria-label="Reboot VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %};">
+  <button id="reboot-{{ vm.vmid }}" class="reboot" onclick="confirmAction({{ vm.vmid }}, 'reboot')" aria-label="Reboot VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %};">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
         </svg>
@@ -418,13 +442,13 @@
       </button>
       {% endif %}
       <div class="button-row" style="display: {% if vm.status == 'running' %}grid{% else %}none{% endif %}; grid-template-columns: 1fr 1fr; gap: 2px; height: 100%; {% if vm.status == 'running' and hide_reboot %}flex: 1;{% endif %}">
-        <button id="stop-{{ vm.vmid }}" class="stop" onclick="confirmAction({{ vm.vmid }}, 'stop')" aria-label="Stop VM {{ vm.vmid }}" style="height: 100%;">
+  <button id="stop-{{ vm.vmid }}" class="stop" onclick="confirmAction({{ vm.vmid }}, 'stop')" aria-label="Stop VM {{ vm.vmid }}" style="height: 100%;">
           <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h12v12H6z"/>
           </svg>
           <span>Stop</span>
         </button>
-        <button id="reset-{{ vm.vmid }}" class="reset" onclick="confirmAction({{ vm.vmid }}, 'restart')" aria-label="Reset VM {{ vm.vmid }}" style="height: 100%;">
+  <button id="reset-{{ vm.vmid }}" class="reset" onclick="confirmAction({{ vm.vmid }}, 'restart')" aria-label="Reset VM {{ vm.vmid }}" style="height: 100%;">
           <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
           </svg>
@@ -541,10 +565,12 @@ window.addEventListener('orientationchange', () => {
 // Render shy as a JS boolean using Jinja
 const shy = {{ 'true' if shy else 'false' }};
 function confirmAction(vmid, action) {
+  console.log('confirmAction called', {vmid: vmid, action: action, shy: shy});
   if(shy && !confirm(`Are you sure you want to ${action} VM ${vmid}?`)) return;
   sendCommand(vmid, action);
 }
 function sendCommand(vmid, action) {
+  console.log('sendCommand called', {vmid: vmid, action: action});
   fetch('/vm/' + vmid + '/' + action, { method: 'POST' })
     .then(res => res.json())
     .then(data => {
@@ -718,6 +744,12 @@ function fetchStatus() {
 setInitialButtonStates();
 fetchStatus();
 setInterval(fetchStatus, 3000);
+</script>
+<script>
+  // notify parent of activity to reset screensaver
+  function postActivity(){ try{ parent.postMessage('proxpad-activity', '*'); }catch(e){} }
+  ['click','touchstart','keydown','mousemove'].forEach(e=>window.addEventListener(e, postActivity, {passive:true}));
+  window.addEventListener('load', postActivity);
 </script>
 </body>
 </html>

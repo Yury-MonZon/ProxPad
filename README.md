@@ -126,6 +126,7 @@ Set to `True` to show confirmation dialogs before VM actions.
 - Portrait: VMs stacked vertically
 
 ### Mobile Phones
+- You can use OperaMini or Kiosk mode to show the ProxPad in fullscreen mode on Android
 - Optimized button layouts for touch
 - Compact landscape mode
 - Thumb-friendly sizing
