@@ -7,7 +7,7 @@ macro broadcasting system. Provides responsive touchscreen interface
 for VM control and macro execution across multiple platforms.
 
 Author: ProxPad Project
-Version: 2.0
+Version: 2.1
 """
 
 import json

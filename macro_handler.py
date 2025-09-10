@@ -7,7 +7,7 @@ across Windows and Linux platforms. Uses pynput for standard keyboard
 input and uinput for Linux Super key combinations (requires sudo).
 
 Author: ProxPad Project
-Version: 2.0
+Version: 2.1
 """
 
 import json
