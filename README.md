@@ -38,9 +38,12 @@ ProxPad is a web-based macropad interface for managing Proxmox virtual machines 
    cd ProxPad
    ```
 
-2. **Install dependencies:**
+2. **Install dependencies for Server part - proxpad.py(usually it is run on Proxmox server):**
    - On Arch/CachyOS: `./install_debs_cachyos.sh`
    - On Debian/Ubuntu: `./install_deps_debian.sh`
+
+   **Install dependencies for Client part - macro_handler.py(to process macro, not needed for VM control):**
+   - On Windows/Linux: `pip install pynput`
 
 3. **Configure Proxmox API Token:**
    - Log into Proxmox web interface

@@ -146,6 +146,129 @@ class MacroHandler:
             uinput_keys = list(dict.fromkeys(uinput_keys))
             self.uinput_device = uinput.Device(uinput_keys)
             self.logger.info(f"✅ uinput device initialized with {len(uinput_keys)} keys (explicit list)")
+            # Build a name->code map (e.g., 'KEY_A' -> uinput.KEY_A) for combo resolution
+            try:
+                self.uinput_name_map = {}
+                # Letters
+                for i in range(ord('a'), ord('z')+1):
+                    name = f'KEY_{chr(i).upper()}'
+                    if hasattr(uinput, name):
+                        self.uinput_name_map[name] = getattr(uinput, name)
+                # Digits
+                for i in range(0, 10):
+                    name = f'KEY_{i}'
+                    if hasattr(uinput, name):
+                        self.uinput_name_map[name] = getattr(uinput, name)
+                # Function keys
+                for i in range(1, 21):
+                    name = f'KEY_F{i}'
+                    if hasattr(uinput, name):
+                        self.uinput_name_map[name] = getattr(uinput, name)
+                # Common named keys
+                named_keys = [
+                    'KEY_TAB','KEY_ENTER','KEY_SPACE','KEY_ESC','KEY_BACKSPACE','KEY_DELETE','KEY_HOME','KEY_END',
+                    'KEY_PAGEUP','KEY_PAGEDOWN','KEY_CAPSLOCK','KEY_NUMLOCK','KEY_SCROLLLOCK','KEY_INSERT','KEY_MENU',
+                    'KEY_PAUSE','KEY_PRINT','KEY_UP','KEY_DOWN','KEY_LEFT','KEY_RIGHT','KEY_LEFTCTRL','KEY_RIGHTCTRL',
+                    'KEY_LEFTALT','KEY_RIGHTALT','KEY_LEFTSHIFT','KEY_RIGHTSHIFT','KEY_LEFTMETA','KEY_RIGHTMETA',
+                    'KEY_MINUS','KEY_EQUAL','KEY_LEFTBRACE','KEY_RIGHTBRACE','KEY_BACKSLASH','KEY_SEMICOLON','KEY_APOSTROPHE',
+                    'KEY_GRAVE','KEY_COMMA','KEY_DOT','KEY_SLASH'
+                ]
+                for name in named_keys:
+                    if hasattr(uinput, name):
+                        self.uinput_name_map[name] = getattr(uinput, name)
+            except Exception:
+                self.uinput_name_map = {}
+            # Cache common uinput key lookups to avoid repeated getattr calls later
+            try:
+                # Basic char mappings
+                self.uinput_key_map = {}
+                for i in range(ord('a'), ord('z')+1):
+                    self.uinput_key_map[chr(i)] = getattr(uinput, f'KEY_{chr(i).upper()}')
+                for i in range(0, 10):
+                    self.uinput_key_map[str(i)] = getattr(uinput, f'KEY_{i}')
+
+                # Common special keys
+                self.uinput_key_map.update({
+                    'enter': uinput.KEY_ENTER,
+                    'tab': uinput.KEY_TAB,
+                    'space': uinput.KEY_SPACE,
+                    'esc': uinput.KEY_ESC,
+                    'escape': uinput.KEY_ESC,
+                    'backspace': uinput.KEY_BACKSPACE,
+                    'delete': uinput.KEY_DELETE,
+                    'home': uinput.KEY_HOME,
+                    'end': uinput.KEY_END,
+                    'page_up': uinput.KEY_PAGEUP,
+                    'page_down': uinput.KEY_PAGEDOWN,
+                    'caps_lock': uinput.KEY_CAPSLOCK,
+                    'num_lock': uinput.KEY_NUMLOCK,
+                    'scroll_lock': uinput.KEY_SCROLLLOCK,
+                    'insert': uinput.KEY_INSERT,
+                    'menu': uinput.KEY_MENU,
+                    'pause': uinput.KEY_PAUSE,
+                    'print_screen': uinput.KEY_PRINT,
+                    'print': uinput.KEY_PRINT,
+                    'up': uinput.KEY_UP,
+                    'down': uinput.KEY_DOWN,
+                    'left': uinput.KEY_LEFT,
+                    'right': uinput.KEY_RIGHT,
+                    'f1': getattr(uinput, 'KEY_F1'), 'f2': getattr(uinput, 'KEY_F2'),
+                })
+                # Add remaining function keys
+                for i in range(3, 21):
+                    self.uinput_key_map[f'f{i}'] = getattr(uinput, f'KEY_F{i}')
+
+                # Symbol/punctuation keys
+                self.uinput_key_map.update({
+                    '-': uinput.KEY_MINUS,
+                    '_': uinput.KEY_MINUS,
+                    '=': uinput.KEY_EQUAL,
+                    '+': uinput.KEY_EQUAL,
+                    '[': uinput.KEY_LEFTBRACE,
+                    '{': uinput.KEY_LEFTBRACE,
+                    ']': uinput.KEY_RIGHTBRACE,
+                    '}': uinput.KEY_RIGHTBRACE,
+                    '\\': uinput.KEY_BACKSLASH,
+                    '|': uinput.KEY_BACKSLASH,
+                    ';': uinput.KEY_SEMICOLON,
+                    ':': uinput.KEY_SEMICOLON,
+                    "'": uinput.KEY_APOSTROPHE,
+                    '"': uinput.KEY_APOSTROPHE,
+                    ',': uinput.KEY_COMMA,
+                    '<': uinput.KEY_COMMA,
+                    '.': uinput.KEY_DOT,
+                    '>': uinput.KEY_DOT,
+                    '/': uinput.KEY_SLASH,
+                    '?': uinput.KEY_SLASH,
+                    '`': uinput.KEY_GRAVE,
+                    '~': uinput.KEY_GRAVE,
+                    ' ': uinput.KEY_SPACE,
+                })
+
+                # Media mapping
+                self.uinput_media_map = {
+                    'play': getattr(uinput, 'KEY_PLAYPAUSE', None),
+                    'media_play_pause': getattr(uinput, 'KEY_PLAYPAUSE', None),
+                    'playpause': getattr(uinput, 'KEY_PLAYPAUSE', None),
+                    'next': getattr(uinput, 'KEY_NEXTSONG', None),
+                    'media_next': getattr(uinput, 'KEY_NEXTSONG', None),
+                    'next_track': getattr(uinput, 'KEY_NEXTSONG', None),
+                    'previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                    'prev': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                    'media_previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                    'prev_track': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                    'volume_up': getattr(uinput, 'KEY_VOLUMEUP', None),
+                    'vol_up': getattr(uinput, 'KEY_VOLUMEUP', None),
+                    'volume_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
+                    'vol_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
+                    'mute': getattr(uinput, 'KEY_MUTE', None),
+                    'volume_mute': getattr(uinput, 'KEY_MUTE', None),
+                }
+            except Exception:
+                # In case any attribute access fails unexpectedly, keep maps empty
+                self.uinput_key_map = {}
+                self.uinput_media_map = {}
+                self.uinput_name_map = {}
         except PermissionError:
             self.logger.warning("⚠️  uinput requires sudo privileges for key emulation")
             self.logger.warning("   Run with: sudo python macro_handler.py")
@@ -165,44 +288,28 @@ class MacroHandler:
         """
         # Media key mappings (pynput and uinput)
         media_mappings = {
-            'play': Key.media_play_pause,
-            'media_play_pause': Key.media_play_pause,
-            'playpause': Key.media_play_pause,
-            'next': Key.media_next,
-            'media_next': Key.media_next,
-            'next_track': Key.media_next,
-            'previous': Key.media_previous,
-            'prev': Key.media_previous,
-            'media_previous': Key.media_previous,
-            'prev_track': Key.media_previous,
-            'volume_up': Key.media_volume_up,
-            'vol_up': Key.media_volume_up,
-            'volume_down': Key.media_volume_down,
-            'vol_down': Key.media_volume_down,
-            'mute': Key.media_volume_mute,
-            'volume_mute': Key.media_volume_mute,
+            # Use getattr on Key to avoid AttributeError when pynput Key lacks media attrs
+            'play': (getattr(Key, 'media_play_pause', None) if Key else None),
+            'media_play_pause': (getattr(Key, 'media_play_pause', None) if Key else None),
+            'playpause': (getattr(Key, 'media_play_pause', None) if Key else None),
+            'next': (getattr(Key, 'media_next', None) if Key else None),
+            'media_next': (getattr(Key, 'media_next', None) if Key else None),
+            'next_track': (getattr(Key, 'media_next', None) if Key else None),
+            'previous': (getattr(Key, 'media_previous', None) if Key else None),
+            'prev': (getattr(Key, 'media_previous', None) if Key else None),
+            'media_previous': (getattr(Key, 'media_previous', None) if Key else None),
+            'prev_track': (getattr(Key, 'media_previous', None) if Key else None),
+            'volume_up': (getattr(Key, 'media_volume_up', None) if Key else None),
+            'vol_up': (getattr(Key, 'media_volume_up', None) if Key else None),
+            'volume_down': (getattr(Key, 'media_volume_down', None) if Key else None),
+            'vol_down': (getattr(Key, 'media_volume_down', None) if Key else None),
+            'mute': (getattr(Key, 'media_volume_mute', None) if Key else None),
+            'volume_mute': (getattr(Key, 'media_volume_mute', None) if Key else None),
         }
-        uinput_media_mappings = {
-            'play': getattr(uinput, 'KEY_PLAYPAUSE', None),
-            'media_play_pause': getattr(uinput, 'KEY_PLAYPAUSE', None),
-            'playpause': getattr(uinput, 'KEY_PLAYPAUSE', None),
-            'next': getattr(uinput, 'KEY_NEXTSONG', None),
-            'media_next': getattr(uinput, 'KEY_NEXTSONG', None),
-            'next_track': getattr(uinput, 'KEY_NEXTSONG', None),
-            'previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-            'prev': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-            'media_previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-            'prev_track': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-            'volume_up': getattr(uinput, 'KEY_VOLUMEUP', None),
-            'vol_up': getattr(uinput, 'KEY_VOLUMEUP', None),
-            'volume_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
-            'vol_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
-            'mute': getattr(uinput, 'KEY_MUTE', None),
-            'volume_mute': getattr(uinput, 'KEY_MUTE', None),
-        }
-        # Try uinput first if available
+        # Try uinput first if available — build uinput mappings only when device exists
         if hasattr(self, 'uinput_device') and self.uinput_device:
-            uinput_key = uinput_media_mappings.get(key_str)
+            # Use cached uinput media map initialized in _initialize_uinput()
+            uinput_key = getattr(self, 'uinput_media_map', {}).get(key_str)
             if uinput_key:
                 try:
                     self.uinput_device.emit(uinput_key, 1)
@@ -222,6 +329,7 @@ class MacroHandler:
         if not media_key:
             return False
         try:
+            # Use Key/KeyCode objects from pynput
             self.keyboard_controller.press(media_key)
             self.keyboard_controller.release(media_key)
             self.logger.info(f"🎵 Media key executed via pynput: {key_str}")
@@ -379,6 +487,16 @@ class MacroHandler:
                 self.uinput_device.syn()
                 return
         # Fallback to pynput
+        try:
+            from pynput.keyboard import KeyCode
+            if isinstance(key, str) and len(key) == 1:
+                kc = KeyCode.from_char(key)
+                self.keyboard_controller.press(kc)
+                time.sleep(0.02)
+                self.keyboard_controller.release(kc)
+                return
+        except Exception:
+            pass
         self.keyboard_controller.press(key)
         time.sleep(0.02)
         self.keyboard_controller.release(key)
@@ -424,17 +542,29 @@ class MacroHandler:
         # Convert keys to uinput codes
         uinput_keys = []
         for k in keys_to_press:
-            # If it's a pynput Key object, use its name
-            if hasattr(k, 'name'):
-                kstr = k.name.lower()
-            else:
+            # Resolve the key string for mapping. Handle:
+            # - pynput.keyboard.KeyCode with .char
+            # - pynput.keyboard.Key with .name
+            # - plain strings or repr like "'l'"
+            kstr = None
+            try:
+                if hasattr(k, 'char') and k.char is not None:
+                    kstr = str(k.char).lower()
+                elif hasattr(k, 'name') and k.name is not None:
+                    kstr = str(k.name).lower()
+                else:
+                    # str(k) for some KeyCode values can be "'l'"; strip quotes
+                    kstr = str(k).lower().strip("'\"")
+            except Exception:
                 kstr = str(k).lower()
+
             code_name = key_map.get(kstr)
-            code = getattr(uinput, code_name, None) if code_name else None
+            # Use the cached name->code map built during uinput initialization
+            code = getattr(self, 'uinput_name_map', {}).get(code_name) if code_name else None
             if code:
                 uinput_keys.append(code)
             else:
-                # Try direct mapping for single chars
+                # Try direct mapping for single chars (letters/digits/etc.)
                 code = self._get_uinput_key_code(kstr)
                 if code:
                     uinput_keys.append(code)
@@ -479,8 +609,14 @@ class MacroHandler:
                 keys_to_press.append(mapped_key)
                 self.logger.debug(f"Mapped modifier '{key}' -> {mapped_key}")
             elif len(key) == 1:
-                keys_to_press.append(key)
-                self.logger.debug(f"Added character key: '{key}'")
+                # Convert single characters to KeyCode for pynput compatibility
+                try:
+                    from pynput.keyboard import KeyCode
+                    keys_to_press.append(KeyCode.from_char(key))
+                    self.logger.debug(f"Added character key (KeyCode): '{key}'")
+                except Exception:
+                    keys_to_press.append(key)
+                    self.logger.debug(f"Added character key: '{key}'")
             else:
                 # Try to find it in the special key mapping
                 special_key = self._get_special_combination_key(key)
@@ -519,10 +655,39 @@ class MacroHandler:
         Returns:
             bool: True if executed successfully
         """
+        # Special-case: On Windows, Win+L is handled by the OS and may not be triggered
+        # by simulated key injection reliably. Use native LockWorkStation API instead.
+        if self.system == 'windows':
+            norm = key_str.lower()
+            if norm in ('win+l', 'super+l', 'cmd+l'):
+                return self._lock_workstation()
+
         if len(keys_to_press) > 1:
             return self._execute_multi_key_combination(keys_to_press)
         else:
             return self._execute_single_key_from_combination(keys_to_press[0], key_str)
+
+    def _lock_workstation(self):
+        """Lock the Windows workstation using native API.
+
+        Returns:
+            bool: True if the call succeeded
+        """
+        try:
+            if self.system != 'windows':
+                self.logger.warning("⚠️  _lock_workstation called on non-Windows system")
+                return False
+            import ctypes
+            res = ctypes.windll.user32.LockWorkStation()
+            if res:
+                self.logger.info("🔒 Workstation locked via LockWorkStation()")
+                return True
+            else:
+                self.logger.warning("⚠️  LockWorkStation returned False")
+                return False
+        except Exception as e:
+            self.logger.error(f"❌ Failed to lock workstation: {e}")
+            return False
     
     def _execute_multi_key_combination(self, keys_to_press):
         """Execute multi-key combination using context managers.
@@ -652,41 +817,8 @@ class MacroHandler:
     
     def _get_uinput_key_code(self, key_str):
         """Get uinput key code for a character or special key."""
-        # Letters a-z
-        char_to_uinput = {chr(i): getattr(uinput, f'KEY_{chr(i).upper()}', None) for i in range(ord('a'), ord('z')+1)}
-        # Digits 0-9
-        char_to_uinput.update({str(i): getattr(uinput, f'KEY_{i}', None) for i in range(0, 10)})
-        # Special keys
-        special_keys = {
-            'enter': uinput.KEY_ENTER,
-            'tab': uinput.KEY_TAB,
-            'space': uinput.KEY_SPACE,
-            'esc': uinput.KEY_ESC,
-            'escape': uinput.KEY_ESC,
-            'backspace': uinput.KEY_BACKSPACE,
-            'delete': uinput.KEY_DELETE,
-            'home': uinput.KEY_HOME,
-            'end': uinput.KEY_END,
-            'page_up': uinput.KEY_PAGEUP,
-            'page_down': uinput.KEY_PAGEDOWN,
-            'caps_lock': uinput.KEY_CAPSLOCK,
-            'num_lock': uinput.KEY_NUMLOCK,
-            'scroll_lock': uinput.KEY_SCROLLLOCK,
-            'insert': uinput.KEY_INSERT,
-            'menu': uinput.KEY_MENU,
-            'pause': uinput.KEY_PAUSE,
-            'print_screen': uinput.KEY_PRINT,
-            'print': uinput.KEY_PRINT,
-            'up': uinput.KEY_UP,
-            'down': uinput.KEY_DOWN,
-            'left': uinput.KEY_LEFT,
-            'right': uinput.KEY_RIGHT,
-        }
-        char_to_uinput.update(special_keys)
-        # Function keys f1-f20
-        for i in range(1, 21):
-            char_to_uinput[f'f{i}'] = getattr(uinput, f'KEY_F{i}', None)
-        return char_to_uinput.get(key_str)
+        # Use cached map if available, otherwise return None
+        return getattr(self, 'uinput_key_map', {}).get(key_str)
     
     def _perform_uinput_combination(self, uinput_key, key_name):
         """Perform the actual uinput key combination.
@@ -823,37 +955,15 @@ class MacroHandler:
             '!': '1', '@': '2', '#': '3', '$': '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0',
             '_': '-', '+': '=', '{': '[', '}': ']', '|': '\\', ':': ';', '"': '\'', '<': ',', '>': '.', '?': '/', '~': '`'
         }
-        # uinput symbol mapping
-        uinput_symbol_map = {
-            '-': uinput.KEY_MINUS,
-            '_': uinput.KEY_MINUS,
-            '=': uinput.KEY_EQUAL,
-            '+': uinput.KEY_EQUAL,
-            '[': uinput.KEY_LEFTBRACE,
-            '{': uinput.KEY_LEFTBRACE,
-            ']': uinput.KEY_RIGHTBRACE,
-            '}': uinput.KEY_RIGHTBRACE,
-            '\\': uinput.KEY_BACKSLASH,
-            '|': uinput.KEY_BACKSLASH,
-            ';': uinput.KEY_SEMICOLON,
-            ':': uinput.KEY_SEMICOLON,
-            "'": uinput.KEY_APOSTROPHE,
-            '"': uinput.KEY_APOSTROPHE,
-            ',': uinput.KEY_COMMA,
-            '<': uinput.KEY_COMMA,
-            '.': uinput.KEY_DOT,
-            '>': uinput.KEY_DOT,
-            '/': uinput.KEY_SLASH,
-            '?': uinput.KEY_SLASH,
-            '`': uinput.KEY_GRAVE,
-            '~': uinput.KEY_GRAVE,
-            ' ': uinput.KEY_SPACE,
-        }
-        direct_symbols = set('-_=+[]{};:\',.<>/?`~ \'"| ')
+
+        # Direct symbols that map to specific uinput codes
+        direct_symbols = set(['-','_','=','+','[',']','{','}',';',':',',','.','<','>','/','?','`','~',' ',"'",'"','|'])
+
         try:
             for char in text:
                 use_shift = False
                 base_char = char
+
                 # Uppercase letters
                 if 'A' <= char <= 'Z':
                     use_shift = True
@@ -866,55 +976,71 @@ class MacroHandler:
                 elif char in direct_symbols:
                     base_char = char
                     use_shift = False
+
                 # Use uinput if available
                 if hasattr(self, 'uinput_device') and self.uinput_device:
+                    keymap = getattr(self, 'uinput_key_map', None)
+
                     if use_shift:
-                        self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 1)
+                        try:
+                            self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 1)
+                        except Exception:
+                            pass
                         time.sleep(0.01)
+
                     # Special handling for literal backslash
                     if char == '\\':
-                        keycode = uinput.KEY_BACKSLASH
-                        self.uinput_device.emit(keycode, 1)
-                        time.sleep(0.02)
-                        self.uinput_device.emit(keycode, 0)
-                        self.uinput_device.syn()
-                    elif char in uinput_symbol_map:
-                        keycode = uinput_symbol_map[char]
-                        self.uinput_device.emit(keycode, 1)
-                        time.sleep(0.02)
-                        self.uinput_device.emit(keycode, 0)
-                        self.uinput_device.syn()
+                        keycode = None
+                        if keymap:
+                            keycode = keymap.get('\\')
+                        if not keycode:
+                            keycode = getattr(uinput, 'KEY_BACKSLASH', None)
+                        if keycode:
+                            try:
+                                self.uinput_device.emit(keycode, 1)
+                                time.sleep(0.02)
+                                self.uinput_device.emit(keycode, 0)
+                                self.uinput_device.syn()
+                            except Exception:
+                                pass
                     else:
-                        uinput_key = self._get_uinput_key_code(base_char)
-                        if uinput_key:
-                            self.uinput_device.emit(uinput_key, 1)
-                            time.sleep(0.02)
-                            self.uinput_device.emit(uinput_key, 0)
-                            self.uinput_device.syn()
+                        keycode = None
+                        if keymap:
+                            keycode = keymap.get(char)
+                        if not keycode:
+                            keycode = self._get_uinput_key_code(base_char)
+                        if keycode:
+                            try:
+                                self.uinput_device.emit(keycode, 1)
+                                time.sleep(0.02)
+                                self.uinput_device.emit(keycode, 0)
+                                self.uinput_device.syn()
+                            except Exception:
+                                pass
+
                     if use_shift:
-                        self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 0)
-                        self.uinput_device.syn()
+                        try:
+                            self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 0)
+                            self.uinput_device.syn()
+                        except Exception:
+                            pass
+
                     continue
+
                 # Fallback to pynput
                 if self.keyboard_controller:
                     try:
+                        from pynput.keyboard import KeyCode
+                        kc = KeyCode.from_char(base_char)
                         if use_shift:
                             with self.keyboard_controller.pressed(Key.shift):
-                                self.keyboard_controller.press(base_char)
+                                self.keyboard_controller.press(kc)
                                 time.sleep(0.02)
-                                self.keyboard_controller.release(base_char)
+                                self.keyboard_controller.release(kc)
                         else:
-                            # Special handling for literal backslash
-                            if char == '\\':
-                                from pynput.keyboard import KeyCode
-                                keycode = KeyCode.from_char('\\')
-                                self.keyboard_controller.press(keycode)
-                                time.sleep(0.02)
-                                self.keyboard_controller.release(keycode)
-                            else:
-                                self.keyboard_controller.press(base_char)
-                                time.sleep(0.02)
-                                self.keyboard_controller.release(base_char)
+                            self.keyboard_controller.press(kc)
+                            time.sleep(0.02)
+                            self.keyboard_controller.release(kc)
                     except Exception:
                         # Try KeyCode for symbols that fail
                         try:
@@ -925,6 +1051,7 @@ class MacroHandler:
                             self.keyboard_controller.release(keycode)
                         except Exception:
                             self.logger.warning(f"⚠️ Could not type symbol: {char}")
+
             self.logger.info(f"✅ Typed: {text}")
             return True
         except Exception as e:
