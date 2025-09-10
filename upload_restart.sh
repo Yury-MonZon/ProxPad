@@ -1,0 +1,1 @@
+scp config.py root@192.168.1.240:/root/ProxPad/ && ssh root@192.168.1.240 'bash /root/ProxPad/restart_me.sh'

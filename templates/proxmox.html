@@ -60,9 +60,7 @@
   }
   /* Portrait mode */
   @media (orientation: portrait) {
-    #container {
-      /* Use default styling */
-    }
+  /* portrait: use default container styling */
   }
   /* Landscape mode - dynamic grid with address bar consideration */
   @media (orientation: landscape) {
@@ -131,7 +129,7 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
-    backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   }
   .vmstatus {
     flex: 0 0 auto;
@@ -228,7 +226,9 @@
     gap: 6px;
     white-space: nowrap;
     user-select: none;
-    transition: all 0.3s ease;
+   /* avoid transitioning height/width to prevent half-size flashes during layout changes
+     only animate non-layout properties */
+   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
     box-shadow: 0 3px 10px rgba(0,0,0,0.4);
   }
   button:hover {
@@ -382,6 +382,35 @@
       gap: 4px;
     }
   }
+
+  /* Portrait mobile: force column flex layout for running grids so buttons are equal height */
+  @media (orientation: portrait) and (max-width: 900px) {
+    .vm-block .button-grid.running,
+    .vm-block .button-grid.two-row-layout.running {
+      display: flex !important;
+      flex-direction: column !important;
+      height: 100% !important;
+    }
+    .vm-block .button-grid.running > button,
+    .vm-block .button-grid.running > .button-row,
+    .vm-block .button-grid.two-row-layout.running > button,
+    .vm-block .button-grid.two-row-layout.running > .button-row {
+      flex: 1 1 0 !important;
+      height: auto !important;
+      min-height: 0 !important;
+      box-sizing: border-box;
+    }
+    /* ensure two-column rows inside a button-row layout behave correctly */
+    .vm-block .button-row {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 6px !important;
+    }
+    .vm-block .button-row > button {
+      flex: 1 1 0 !important;
+      height: auto !important;
+    }
+  }
   /* Ensure consistent button heights across grid and flex layouts */
   .button-grid {
     /* make new rows default to equal fraction heights */
@@ -406,6 +435,23 @@
     min-height: 0 !important;
     box-sizing: border-box;
   }
+  /* When only a single VM is shown, prefer a stable flex column for running state
+     to avoid layout changes when the Start button is hidden and other buttons show. */
+  #container.single-vm .vm-block .button-grid.running,
+  #container.single-vm .vm-block .button-grid.two-row-layout.running {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+  #container.single-vm .vm-block .button-grid.running > button,
+  #container.single-vm .vm-block .button-grid.running > .button-row,
+  #container.single-vm .vm-block .button-grid.two-row-layout.running > button,
+  #container.single-vm .vm-block .button-grid.two-row-layout.running > .button-row {
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    box-sizing: border-box;
+  }
 </style>
 </head>
 <body>
@@ -420,28 +466,28 @@
         <div class="usage">Stopped</div>
       {% endif %}
     </div>
-    <div class="button-grid {% if vm.status == 'running' and hide_reboot %}two-row-layout{% endif %}" style="{% if vm.status == 'running' and hide_reboot %}display: flex; flex-direction: column; height: 100%;{% else %}grid-template-columns: 1fr; grid-template-rows: {% if vm.status == 'running' %}repeat(3, 1fr){% else %}1fr{% endif %};{% endif %}">
-  <button id="start-{{ vm.vmid }}" class="start" onclick="confirmAction({{ vm.vmid }}, 'start')" aria-label="Start VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}none{% else %}flex{% endif %};">
+    <div class="button-grid {% if vm.status == 'running' and hide_reboot %}two-row-layout running{% elif vm.status == 'running' %}running{% else %}stopped{% endif %}">
+  <button id="start-{{ vm.vmid }}" class="start" onclick="confirmAction({{ vm.vmid }}, 'start')" aria-label="Start VM {{ vm.vmid }}">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z"/>
         </svg>
-        <span>Start</span>
+  <span>Start</span>
       </button>
-  <button id="shutdown-{{ vm.vmid }}" class="shutdown" onclick="confirmAction({{ vm.vmid }}, 'shutdown')" aria-label="Shutdown VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %}; {% if vm.status == 'running' and hide_reboot %}flex: 1; height: auto;{% endif %}">
+  <button id="shutdown-{{ vm.vmid }}" class="shutdown" onclick="confirmAction({{ vm.vmid }}, 'shutdown')" aria-label="Shutdown VM {{ vm.vmid }}" {% if vm.status == 'running' and hide_reboot %}style="flex:1; height:auto;"{% endif %}>
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M16.56 5.44L15.11 6.89C16.84 7.94 18 9.83 18 12A6 6 0 0 1 6 12C6 9.83 7.16 7.94 8.88 6.88L7.44 5.44C5.36 6.88 4 9.28 4 12A8 8 0 0 0 20 12C20 9.28 18.64 6.88 16.56 5.44M13 3H11V13H13"/>
         </svg>
         <span>Shutdown</span>
       </button>
-      {% if not hide_reboot %}
-  <button id="reboot-{{ vm.vmid }}" class="reboot" onclick="confirmAction({{ vm.vmid }}, 'reboot')" aria-label="Reboot VM {{ vm.vmid }}" style="display: {% if vm.status == 'running' %}flex{% else %}none{% endif %};">
+    {% if not hide_reboot %}
+  <button id="reboot-{{ vm.vmid }}" class="reboot" onclick="confirmAction({{ vm.vmid }}, 'reboot')" aria-label="Reboot VM {{ vm.vmid }}">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
         </svg>
         <span>Reboot</span>
       </button>
       {% endif %}
-      <div class="button-row" style="display: {% if vm.status == 'running' %}grid{% else %}none{% endif %}; grid-template-columns: 1fr 1fr; gap: 2px; height: 100%; {% if vm.status == 'running' and hide_reboot %}flex: 1;{% endif %}">
+  <div class="button-row" {% if vm.status == 'running' %}style="display: grid;"{% else %}style="display: none;"{% endif %} >
   <button id="stop-{{ vm.vmid }}" class="stop" onclick="confirmAction({{ vm.vmid }}, 'stop')" aria-label="Stop VM {{ vm.vmid }}" style="height: 100%;">
           <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h12v12H6z"/>
@@ -554,6 +600,10 @@ function setOptimalGrid() {
   
   container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  // mark single-vm so CSS can prefer a flex column layout for running state
+  try {
+    if (vmCount === 1) container.classList.add('single-vm'); else container.classList.remove('single-vm');
+  } catch (e) {}
 }
 
 setViewportHeight();
@@ -566,7 +616,7 @@ window.addEventListener('orientationchange', () => {
 const shy = {{ 'true' if shy else 'false' }};
 function confirmAction(vmid, action) {
   console.log('confirmAction called', {vmid: vmid, action: action, shy: shy});
-  if(shy && !confirm(`Are you sure you want to ${action} VM ${vmid}?`)) return;
+  if (shy && !confirm(`Are you sure you want to ${action} VM ${vmid}?`)) return;
   sendCommand(vmid, action);
 }
 function sendCommand(vmid, action) {
@@ -575,90 +625,71 @@ function sendCommand(vmid, action) {
     .then(res => res.json())
     .then(data => {
       if (data.status === 'success') {
-        showVMOutput(`Success: VM ${data.vmid} ${data.action}`, true);
-        // Immediately update local DOM status to avoid stale layout until next poll
-        const vmBlock = document.getElementById('vm-' + vmid);
-        if (vmBlock) {
-          // Update data-status attribute so later logic can use it
-          vmBlock.setAttribute('data-status', action === 'start' || action === 'reboot' ? 'running' : (action === 'stop' || action === 'shutdown' ? 'stopped' : vmBlock.getAttribute('data-status')));
-          // Trigger immediate UI update
-          updateVMStatus([{ vmid: parseInt(vmid), status: vmBlock.getAttribute('data-status'), ram_gb: null, cpu_percent: null }]);
-          // Force a reflow and recalc grid to collapse any leftover gaps
-          vmBlock.style.display = 'none';
-          // read back to force reflow
-          // eslint-disable-next-line no-unused-vars
-          const _ = vmBlock.offsetHeight;
-          vmBlock.style.display = '';
-          setOptimalGrid();
-        }
+        showVMOutput(`Command sent to VM ${data.vmid}: ${data.action}`, true);
+        // no local UI changes here; /vm_status will update the controls
       } else {
-        showVMOutput(`Error: ${data.message || 'Unknown error'}`, false);
+  showVMOutput(`Error: ${data.message || 'Unknown error'}`, false);
       }
     })
     .catch(err => {
-      showVMOutput('Error: ' + err, false);
+  showVMOutput('Error: ' + err, false);
     });
 }
 function updateVMStatus(statuses) {
   statuses.forEach(vm => {
-    // Update status text in the vmstatus div
     const vmBlock = document.getElementById('vm-' + vm.vmid);
-    if(vmBlock) {
-      // Update or create/remove usage info
+    // Update status text in the vmstatus div
+    if (vmBlock) {
       let usageEl = vmBlock.querySelector('.usage');
-      if(vm.status === 'running' && vm.ram_gb !== null && vm.cpu_percent !== null) {
-        if(!usageEl) {
+      if (vm.status === 'running' && vm.ram_gb !== null && vm.cpu_percent !== null) {
+        if (!usageEl) {
           usageEl = document.createElement('div');
           usageEl.className = 'usage';
           vmBlock.querySelector('.vmstatus').appendChild(usageEl);
         }
         usageEl.textContent = `${vm.cpu_percent}% CPU ${vm.ram_gb}GB RAM`;
-      } else if(vm.status === 'stopped') {
-        if(!usageEl) {
+      } else if (vm.status === 'stopped') {
+        if (!usageEl) {
           usageEl = document.createElement('div');
           usageEl.className = 'usage';
           vmBlock.querySelector('.vmstatus').appendChild(usageEl);
         }
         usageEl.textContent = 'Stopped';
       } else {
-        if(usageEl) {
-          usageEl.remove();
-        }
+        if (usageEl) usageEl.remove();
       }
     }
 
-    // Buttons reference
-    const startBtn = document.getElementById('start-' + vm.vmid);
-    const shutdownBtn = document.getElementById('shutdown-' + vm.vmid);
-    const rebootBtn = document.getElementById('reboot-' + vm.vmid);
-    const stopBtn = document.getElementById('stop-' + vm.vmid);
-    const resetBtn = document.getElementById('reset-' + vm.vmid);
+    // Buttons and grid follow the reported VM status exactly
     const buttonGrid = document.querySelector(`#vm-${vm.vmid} .button-grid`);
-    const buttonRow = document.querySelector(`#vm-${vm.vmid} .button-row`);
-
-    if(vm.status === 'running') {
+    if (vm.status === 'running') {
       if (buttonGrid) {
         buttonGrid.classList.add('running');
         buttonGrid.classList.remove('stopped');
+        if (buttonGrid.classList.contains('two-row-layout')) {
+          buttonGrid.style.display = 'grid';
+          buttonGrid.style.gridTemplateColumns = '1fr';
+          buttonGrid.style.gridTemplateRows = '1fr 1fr';
+        } else {
+          buttonGrid.style.display = 'grid';
+          buttonGrid.style.gridTemplateColumns = '1fr';
+          buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
+        }
       }
-      if(startBtn) startBtn.style.display = 'none';
-      if(shutdownBtn) shutdownBtn.style.display = 'flex';
-      if(rebootBtn) rebootBtn.style.display = 'flex';
-      if(stopBtn) stopBtn.style.display = 'flex';
-      if(resetBtn) resetBtn.style.display = 'flex';
-      if(buttonRow) buttonRow.style.display = 'grid';
     } else {
       if (buttonGrid) {
         buttonGrid.classList.add('stopped');
         buttonGrid.classList.remove('running');
+        buttonGrid.style.display = 'grid';
+        buttonGrid.style.gridTemplateColumns = '1fr';
+        buttonGrid.style.gridTemplateRows = '1fr';
       }
-      if(startBtn) startBtn.style.display = 'flex';
-      if(shutdownBtn) shutdownBtn.style.display = 'none';
-      if(rebootBtn) rebootBtn.style.display = 'none';
-      if(stopBtn) stopBtn.style.display = 'none';
-      if(resetBtn) resetBtn.style.display = 'none';
-      if(buttonRow) buttonRow.style.display = 'none';
     }
+  // Ensure buttons are enabled
+  const buttons = document.querySelectorAll(`#vm-${vm.vmid} button`);
+  buttons.forEach(b => { b.disabled = false; });
+    // force reflow to stabilize layout
+    if (vmBlock) { const _ = vmBlock.getBoundingClientRect(); }
   });
 }
 
@@ -679,28 +710,29 @@ function setInitialButtonStates() {
     const buttonGrid = vmBlock.querySelector('.button-grid');
     const buttonRow = vmBlock.querySelector('.button-row');
 
-    if(isRunning) {
-      if(startBtn) startBtn.style.display = 'none';
-      if(shutdownBtn) shutdownBtn.style.display = 'flex';
-      if(rebootBtn) rebootBtn.style.display = 'flex';
-      if(stopBtn) stopBtn.style.display = 'flex';
-      if(resetBtn) resetBtn.style.display = 'flex';
-      if(buttonRow) buttonRow.style.display = 'grid';
-      if(buttonGrid) {
-        buttonGrid.style.gridTemplateColumns = '1fr';
-        buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
-      }
+    if (isRunning) {
+        if (buttonGrid) {
+          buttonGrid.classList.add('running');
+          buttonGrid.classList.remove('stopped');
+          // Explicitly set rows to avoid layout shifts on first paint
+          buttonGrid.style.display = 'grid';
+          buttonGrid.style.gridTemplateColumns = '1fr';
+          buttonGrid.style.gridTemplateRows = 'repeat(3, 1fr)';
+          // force reflow so heights are computed correctly without hiding the element
+          // eslint-disable-next-line no-unused-vars
+          const _ = vmBlock.getBoundingClientRect();
+        }
     } else {
-      if(startBtn) startBtn.style.display = 'flex';
-      if(shutdownBtn) shutdownBtn.style.display = 'none';
-      if(rebootBtn) rebootBtn.style.display = 'none';
-      if(stopBtn) stopBtn.style.display = 'none';
-      if(resetBtn) resetBtn.style.display = 'none';
-      if(buttonRow) buttonRow.style.display = 'none';
-      if(buttonGrid) {
-        buttonGrid.style.gridTemplateColumns = '1fr';
-        buttonGrid.style.gridTemplateRows = '1fr';
-      }
+        if (buttonGrid) {
+          buttonGrid.classList.add('stopped');
+          buttonGrid.classList.remove('running');
+          buttonGrid.style.display = 'grid';
+          buttonGrid.style.gridTemplateColumns = '1fr';
+          buttonGrid.style.gridTemplateRows = '1fr';
+          // force a reflow without toggling visibility
+          // eslint-disable-next-line no-unused-vars
+          const _ = vmBlock.getBoundingClientRect();
+        }
     }
   });
 }
