@@ -17,6 +17,7 @@ All configuration is centralized in `config.py` on the server, making setup and 
 ---
 ## Features
 - **Mobile-Optimized Interface**: Responsive, touch-first grid and layouts for phones and tablets.
+- **Haptic feedback**: Tactile vibration cues on compatible devices.
 - **Resource Conflict Management**: SAME_RESOURCES groups hide/show VMs that share hardware when one is running.
 - **Live VM State & Auto-refresh**: Real-time VM status with UI updates on state/visibility changes.
 - **Quick Actions**: One-tap Start, Stop, Reboot, Shutdown and Restart (via Proxmox API).
