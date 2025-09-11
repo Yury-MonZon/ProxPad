@@ -369,6 +369,34 @@
         });
     </script>
     <script>
+    {% if config.VIBRATION %}
+        (function(){
+            if (!('vibrate' in navigator)) return;
+            const T = {{ config.VIBRATION_MS|default(30)|tojson }};
+            function v(){ try{ navigator.vibrate(T); }catch(e){} }
+
+            // Vibrate on parent tab taps
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('#mainTabs .nav-link').forEach(b=>{
+                    b.addEventListener('pointerdown', (ev)=>{ try{ if (ev && ev.pointerType==='touch') v(); }catch(e){} }, {passive:true});
+                });
+            });
+
+            // Listen for messages from iframes asking for vibration
+            window.addEventListener('message', (ev) => {
+                try {
+                    const d = ev && ev.data;
+                    if (!d) return;
+                    // simple protocol: { proxpad: 'button-press' }
+                    if (d.proxpad === 'button-press') {
+                        v();
+                    }
+                } catch (e) {}
+            }, false);
+        })();
+    {% endif %}
+    </script>
+    <script>
         (function(){
             const SCREENSAVER_MINUTES = {{ config.SCREENSAVER|default(0) }};
             const SCREENSAVER_24H = {{ config.SCREENSAVER_24H|default(false)|tojson }};

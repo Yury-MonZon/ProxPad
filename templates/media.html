@@ -389,5 +389,13 @@
         ['click','touchstart','keydown','mousemove'].forEach(e=>window.addEventListener(e, postActivity, {passive:true}));
         window.addEventListener('load', postActivity);
     </script>
+    <script>
+    // Signal parent to vibrate on control taps
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.control-btn, button.control-btn, .nav-link, button.nav-link').forEach(b=>{
+            b.addEventListener('pointerdown',(ev)=>{ try{ if (ev && ev.pointerType==='touch') parent.postMessage({ proxpad: 'button-press' }, '*'); }catch(e){} }, {passive:true});
+        });
+    });
+    </script>
 </body>
 </html>
