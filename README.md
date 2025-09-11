@@ -10,9 +10,11 @@ All configuration is centralized in `config.py` on the server, making setup and 
 
 **Portrait Mode (Mobile)**
 ![VM Page](images/landscape1.jpg)
+---
 ![Macro Page](images/landscape2.jpg)
+---
 ![Media Page](images/landscape3.jpg)
-
+---
 ## Features
 - **Mobile-Optimized Interface**: Responsive, touch-first grid and layouts for phones and tablets.
 - **Resource Conflict Management**: SAME_RESOURCES groups hide/show VMs that share hardware when one is running.
