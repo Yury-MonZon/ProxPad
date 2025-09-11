@@ -1,6 +1,10 @@
 # ProxPad - Proxmox VM Management Interface
+ProxPad is a web-based interface for managing Proxmox virtual machines and controlling macros/media actions, designed for mobile-first usability and seamless resource conflict management. It can also operate independently of Proxmox for general macro/media control.
 
-ProxPad is a web-based macropad interface for managing Proxmox virtual machines with a focus on mobile-friendly design and resource conflict prevention.
+- **Server Component (`proxpad.py`)**: Runs on your Proxmox server or in an LXC container, providing the web interface and VM management features.
+- **Client Component (`macro_handler.py`)**: A lightweight, cross-platform Python script for Linux or Windows VMs, enabling macro execution and media control with minimal dependencies.
+
+All configuration is centralized in `config.py` on the server, making setup and customization straightforward.
 
 ## Screenshots
 
@@ -10,25 +14,24 @@ ProxPad is a web-based macropad interface for managing Proxmox virtual machines 
 ![Media Page](images/landscape3.jpg)
 
 ## Features
-- **Mobile-Optimized Interface**: Responsive grid layout adapts to all screens
-- **Resource Conflict Management**: Hides VMs that share resources when another in the group is running
-- **Real-time Status Updates**: Live VM status, CPU, RAM
-- **Quick Actions**: Start, stop, restart, shutdown, reboot VMs
-- **Confirmation Dialogs**: Optional before executing VM actions
-- **Auto-refresh**: Page updates when VM visibility changes
-- **Macro Pages (M1, M2)**: Customizable button grids for launching apps, sending key combos, or running commands
-- **Media Tab**: Quick access to music/video player with configurable icon and URL
-- **Screensaver Overlay**: Moving clock, 24h/seconds/color/blank options, prevents accidental clicks
-- **Catppuccin-Inspired Pastel Colors**: Soft, readable color palette for all macro buttons
-- **Tab Bar Positioning**: Tabs can be placed on left or right in landscape mode
-- **Easy Configuration**: All settings (macros, screensaver, tab position, etc.) in `config.py`
-- **Custom Icons**: Use Bootstrap icons or any image URL for macro buttons
+- **Mobile-Optimized Interface**: Responsive, touch-first grid and layouts for phones and tablets.
+- **Resource Conflict Management**: SAME_RESOURCES groups hide/show VMs that share hardware when one is running.
+- **Live VM State & Auto-refresh**: Real-time VM status with UI updates on state/visibility changes.
+- **Quick Actions**: One-tap Start, Stop, Reboot, Shutdown and Restart (via Proxmox API).
+- **Confirmation Dialogs (SHY)**: Optional modal confirmations before VM actions.
+- **Macro Pages**: Configurable macro button pages to send key combos, run commands, or launch apps or urls.
+- **Media Tab**: Media page for embedded player launch and control.
+- **Macro Handler (Client)**: Lightweight `macro_handler.py` for Windows/Linux. On Linux it can use `uinput` for a virtual keyboard (reliable media/special keys). Minimal deps (`pynput`, optional `python-uinput`). Run as a background service or autorun.
+- **Proxmox API Token & Permissions**: Use a Proxmox API token for access (disable Privilege Separation).
+- **Install / Update Helpers**: Provided install scripts (deps, uinput) and run_me.sh for background/startup use.
 
 ## Prerequisites
-- Proxmox VE server
+- Proxmox VE server (macropad can work without it)
 - Python 3.6+
 - Flask
-- proxmoxer library
+- proxmoxer
+- pyinput
+- uinput on Linux
 
 ## Installation
 
@@ -38,11 +41,11 @@ ProxPad is a web-based macropad interface for managing Proxmox virtual machines 
    cd ProxPad
    ```
 
-2. **Install dependencies for Server part - proxpad.py(usually it is run on Proxmox server):**
+2. **Install dependencies for Server part - `proxpad.py`(run on Proxmox server or in LXC):**
    - On Arch/CachyOS: `./install_debs_cachyos.sh`
    - On Debian/Ubuntu: `./install_deps_debian.sh`
 
-   **Install dependencies for Client part - macro_handler.py(to process macro, not needed for VM control):**
+   **Install dependencies for Client part - `macro_handler.py`(run inside VM's):**
    - On Windows/Linux: `pip install pynput`
 
 3. **Configure Proxmox API Token:**
@@ -52,22 +55,18 @@ ProxPad is a web-based macropad interface for managing Proxmox virtual machines 
    - **Disable "Privilege Separation" for the token**
 
 4. **Configure ProxPad:**
-   Edit `config.py`:
+   - Edit `config.py`.
    ```python
    PROXMOX_HOST = "your.proxmox.server.ip"
-   PROXMOX_USER = "root@pam"
    PROXMOX_TOKEN_ID = "ProxPad"
    PROXMOX_TOKEN_SECRET = "your-token-secret"
-   VERIFY_SSL = False
    VM_IDS = [101, 102, 103, 104]
    SAME_RESOURCES = [ [101, 102], [103, 104] ]
-   SHY = True
-   ......
    ```
 
 ## Linux Keyboard Emulation: Why Use uinput?
 
-On modern Linux distributions, direct keyboard emulation for macros and media keys is best achieved using the kernel's `uinput` device. This avoids the security restrictions and reliability issues of the xdg-desktop-portal API, which is designed for sandboxed apps and may block or restrict special key combos (like Super/Win+L) for security reasons.
+On Linux, ProxPad uses the kernel's uinput to create a virtual keyboard that the system treats like a real one, so media keys and special combos (like Super/Win shortcuts) work reliably without permission pop‑ups — just run the included install script in the VM and reboot to enable it.  
 
 **Why uinput?**
 - Works reliably for all key combos, including Super/Win keys
@@ -84,34 +83,18 @@ On modern Linux distributions, direct keyboard emulation for macros and media ke
    - Load the uinput kernel module at boot
    - Set correct group and permissions for `/dev/uinput`
    - Add your user to the `input` group
-   - Reload udev rules
 
-2. Reboot or log out/in for group changes to take effect.
+2. Reboot for group changes to take effect.
 
-After setup, ProxPad will use uinput for keyboard emulation on Linux, allowing secure, reliable macro execution without root or portal limitations.
+After setup, `macro_handler.py` will use uinput for keyboard emulation on Linux, allowing secure, reliable macro execution without root or portal limitations.
 
-For more details, see the comments in `install_uinput.sh` and the macro handler source code.
+For more details, see the comments in `install_uinput.sh`.
 
-## Configuration Options
-
-### VM_IDS
-List of Proxmox VM IDs to manage.
-
-### SAME_RESOURCES
-Define groups of VMs that share physical resources (GPUs, etc.).
-- When any VM in a group is **running**, all others in that group are **hidden**
-- When the running VM **stops**, others become **visible**
-
-**Example:**
-```python
-SAME_RESOURCES = [
-    [101, 102, 103],  # VMs sharing GPU #1
-    [104, 105]        # VMs sharing GPU #2
-]
-```
-
-### SHY
-Set to `True` to show confirmation dialogs before VM actions.
+## Supported macro commands
+   - `key:win+l` or `key:f` press the key or key combo
+   - `exe:calc` or `exe:c:\totalcmd\totalcmd.exe` execute specified binary  
+   - `url:https://google.com` open url in default browser
+   - `type:some text here` type the specified text, '\' has to be input as '\\'
 
 ## Running ProxPad
 
@@ -124,7 +107,6 @@ Set to `True` to show confirmation dialogs before VM actions.
    - For mobile, bookmark or "Add to Home Screen"
 3. **Background operation:**
    ```sh
-   nohup python proxpad.py &
    ./run_me.sh &
    ```
 
@@ -138,30 +120,30 @@ Set to `True` to show confirmation dialogs before VM actions.
 ### Mobile Phones
 - You can use OperaMini or Kiosk mode to show the ProxPad in fullscreen mode on Android
 - Optimized button layouts for touch
-- Compact landscape mode
 - Thumb-friendly sizing
 
-### VM States
-- **Green Start**: VM stopped
-- **Red Stop/Reset**: VM running
-- **Blue Reboot**: Graceful restart
-- **Gray Shutdown**: Graceful shutdown
+### VM Controls
+- **Start**: start VM
+- **Reboot**: Graceful restart, can be hidden via config
+- **Shutdown**: Graceful shutdown
+- **Stop/Reset**: stop VM
+- **Reset**: reset VM
 
 ### Resource Management
-- When VM 100 starts → VMs 101/102 hide (per config)
-- When VM 100 stops → VMs 101/102 reappear
-- Page auto-refreshes on visibility change
+- When VM starts → other VMs with the same resources hide
+- When VM stops → other VMs with the same resources reappear
+- Page auto-refreshes on VM state change
 
 ## Macro Handler: Running macro_handler.py in VMs
 
-To process media keys, macro buttons, and program execution, you must run `macro_handler.py` inside each Windows or Linux VM you want to control. This script listens for UDP broadcast commands from ProxPad and executes the requested actions locally in the VM.
+To process media keys, macro buttons, and program execution, you must run `macro_handler.py` inside each Windows or Linux VM you want to control. This script listens for UDP broadcast commands from `proxpad.py` and executes the requested actions locally in the VM.
 
 - On Windows: Run `python macro_handler.py` (requires Python and pynput)
-- On Linux: Run `python macro_handler.py` (requires Python, pynput, and uinput for full key support)
+- On Linux: Run `python macro_handler.py` (requires Python and uinput for full key support)
 
 **Note:**
-- The macro handler must be running in the background in each VM for ProxPad's media and macro buttons to work.
-- On Linux, ensure uinput is set up for full key emulation (see above).
+- The macro handler must be running in the background in each VM for ProxPad's media and macro buttons to work. Not needed for VM control.
+- On Linux, ensure uinput is set up for full key emulation.
 - You can set up the macro handler to start automatically on VM boot for seamless integration.
 
 ## Troubleshooting
@@ -182,13 +164,23 @@ To process media keys, macro buttons, and program execution, you must run `macro
 - Check browser cache
 - Reload page
 
-## License
+## License (GPL v3)
 
-This project is open source. Feel free to modify and distribute according to your needs.
+This project is licensed under the GNU General Public License version 3 (GPL‑3.0). You are free to copy, modify, and redistribute this software under the terms of the GPL v3.
+
+See the full license in the included LICENSE file or at https://www.gnu.org/licenses/gpl-3.0.en.html
 
 ## Contributing
 
 Feel free to submit issues, feature requests, or pull requests to improve ProxPad.
+
+## Help! I can't set it up
+
+### Paid Support
+
+Paid, one‑on‑one support is available for installation, configuration, custom macros, uinput setup, and troubleshooting.
+
+Contact me via discord: `monzon4765`
 
 ## Support the project
 [![Donate](https://storage.ko-fi.com/cdn/fullLogoKofi.png)](https://ko-fi.com/yurymonzon)
