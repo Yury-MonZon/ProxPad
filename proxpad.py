@@ -479,9 +479,6 @@ def run_macro():
         if command.startswith(('key:', 'exe:', 'url:', 'type:')):
             return _execute_broadcast_macro(command)
         
-        # Handle legacy local shell commands
-        return _execute_local_macro(command)
-        
     except Exception as e:
         app.logger.error(f"❌ Macro execution error: {e}")
         return jsonify({
@@ -516,47 +513,6 @@ def _execute_broadcast_macro(command: str):
             'error': 'UDP broadcast failed',
             'return_code': 1
         })
-
-def _execute_local_macro(command: str):
-    """Execute macro command locally using shell.
-    
-    Args:
-        command: Shell command to execute
-        
-    Returns:
-        JSON response with execution results
-    """
-    try:
-        app.logger.info(f"🖥️ Executing local command: {command}")
-        
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        
-        success = result.returncode == 0
-        
-        if success:
-            app.logger.info(f"✅ Local command completed: {command}")
-        else:
-            app.logger.warning(f"⚠️ Local command failed: {command} (exit code: {result.returncode})")
-        
-        return jsonify({
-            'success': success,
-            'output': result.stdout,
-            'error': result.stderr,
-            'return_code': result.returncode
-        })
-        
-    except subprocess.TimeoutExpired:
-        app.logger.error(f"⏰ Local command timed out: {command}")
-        return jsonify({
-            'success': False,
-            'error': 'Command timed out (30s limit)'
-        }), 408
 
 @app.route('/vm/<int:vmid>/<action>', methods=['POST'])
 def control_vm(vmid: int, action: str):
@@ -644,8 +600,8 @@ def vm_status():
         }), 500
 
 if __name__ == '__main__':
-    """Main application entry point for development server."""
-    app.logger.info("🚀 Starting ProxPad development server")
+    """Main application entry point for server."""
+    app.logger.info("🚀 Starting ProxPad server")
     app.logger.info("📋 Available routes:")
     app.logger.info("   - / : Main VM dashboard")
     app.logger.info("   - /media : Media control interface")
