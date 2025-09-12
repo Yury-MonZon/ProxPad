@@ -1,5 +1,5 @@
-# ProxPad - Proxmox VM Management Interface
-ProxPad is a web-based interface for managing Proxmox virtual machines and controlling macros/media actions, designed for mobile-first usability and seamless resource conflict management. It can also operate independently of Proxmox for general macro/media control.
+# ProxPad - Proxmox VM Management Stream Deck/Macropad
+ProxPad is a web-based Stream Deck/Macropad for managing Proxmox virtual machines and controlling macros/media actions, designed for mobile-first usability and seamless resource conflict management. It can also operate independently of Proxmox for general macro/media control.
 
 - **Server Component (`proxpad.py`)**: Runs on your Proxmox server or in an LXC container, providing the web interface and VM management features.
 - **Client Component (`macro_handler.py`)**: A lightweight, cross-platform Python script for Linux or Windows VMs, enabling macro execution and media control with minimal dependencies.
