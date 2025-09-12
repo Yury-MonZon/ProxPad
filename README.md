@@ -23,6 +23,7 @@ All configuration is centralized in `config.py` on the server, making setup and 
 - **Quick Actions**: One-tap Start, Stop, Reboot, Shutdown and Restart (via Proxmox API).
 - **Confirmation Dialogs (SHY)**: Optional modal confirmations before VM actions.
 - **Macro Pages**: Configurable macro button pages to send key combos, run commands, or launch apps or urls.
+- **Support for GIF icons**: Button icons can show animated icons.
 - **Media Tab**: Media page for embedded player launch and control.
 - **Macro Handler (Client)**: Lightweight `macro_handler.py` for Windows/Linux. On Linux it can use `uinput` for a virtual keyboard (reliable media/special keys). Minimal deps (`pynput`, optional `python-uinput`). Run as a background service or autorun.
 - **Proxmox API Token & Permissions**: Use a Proxmox API token for access (disable Privilege Separation).
