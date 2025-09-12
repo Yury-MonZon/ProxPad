@@ -19,6 +19,10 @@ PALETTE = [
     "#f5e0dc", "#f2cdcd", "#f5c2e7", "#cba6f7",
     "#f38ba8", "#eba0ac", "#fab387", "#f9e2af",
     "#a6e3a1", "#94e2d5", "#89b4fa", "#b4befe",
+    # additional pastel tones
+    "#ffd6a5", "#ffe8d6", "#cdeac0", "#bfefff",
+    "#e0c8ff", "#ffd1dc", "#d9e2f3", "#fffbdb",
+    "#d0f4de", "#e6e6ff", "#f0d9ff", "#cdd6f4",
 ]
 
 SIMILARITY_THRESHOLD = 75.0
@@ -44,6 +48,7 @@ def build_neighbors(rows: int, cols: int):
     def neighbors(idx: int):
         r, c = divmod(idx, cols)
         neigh = []
+        # Cardinal directions
         if c - 1 >= 0:
             neigh.append(idx - 1)
         if c + 1 < cols:
@@ -52,6 +57,15 @@ def build_neighbors(rows: int, cols: int):
             neigh.append(idx - cols)
         if r + 1 < rows:
             neigh.append(idx + cols)
+        # Diagonal directions
+        if r - 1 >= 0 and c - 1 >= 0:
+            neigh.append(idx - cols - 1)  # top-left
+        if r - 1 >= 0 and c + 1 < cols:
+            neigh.append(idx - cols + 1)  # top-right
+        if r + 1 < rows and c - 1 >= 0:
+            neigh.append(idx + cols - 1)  # bottom-left
+        if r + 1 < rows and c + 1 < cols:
+            neigh.append(idx + cols + 1)  # bottom-right
         return neigh
 
     return neighbors
