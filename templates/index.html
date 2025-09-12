@@ -538,6 +538,16 @@
             // Parent-level activity listeners
             ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt => window.addEventListener(evt, resetTimer, {passive:true}));
 
+            // Listen for screensaver requests from iframes and other clients
+            window.addEventListener('message', (ev)=>{
+                try{
+                    if (!ev || !ev.data) return;
+                    if (ev.data === 'proxpad-screensaver') {
+                        try{ showScreensaver(); }catch(e){}
+                    }
+                }catch(err){}
+            }, false);
+
             // Listen to messages from iframes (they will post 'proxpad-activity')
             window.addEventListener('message', (ev)=>{
                 if (!ev.data) return; if (ev.data === 'proxpad-activity') resetTimer();

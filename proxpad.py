@@ -453,7 +453,7 @@ def launch_music_player():
 def run_macro():
     """Execute macro commands via broadcast or local execution.
 
-    Supports both UDP broadcast commands (key:, exe:, url:, type:).
+    Supports UDP broadcast commands (key:, exe:, url:, type:).
 
     Returns:
         JSON response with execution status and output
@@ -496,14 +496,25 @@ def _execute_broadcast_macro(command: str):
         JSON response with broadcast status
     """
     success = send_broadcast_command(command)
-    
+
+    # If this is an OS-lock shortcut, inform the caller so the UI can activate
+    # the screensaver immediately. We include the flag regardless of broadcast
+    # success so the initiating client can react locally.
+    screensaver_flag = False
+    try:
+        if isinstance(command, str) and command.lower() in ('key:super+l', 'key:win+l'):
+            screensaver_flag = True
+    except Exception:
+        screensaver_flag = False
+
     if success:
         app.logger.info(f"✅ Broadcast macro sent: {command}")
         return jsonify({
             'success': True,
             'output': f'Command sent: {command}',
             'error': '',
-            'return_code': 0
+            'return_code': 0,
+            'screensaver': screensaver_flag
         })
     else:
         app.logger.error(f"❌ Failed to send macro: {command}")
@@ -511,7 +522,8 @@ def _execute_broadcast_macro(command: str):
             'success': False,
             'output': '',
             'error': 'UDP broadcast failed',
-            'return_code': 1
+            'return_code': 1,
+            'screensaver': screensaver_flag
         })
 
 @app.route('/vm/<int:vmid>/<action>', methods=['POST'])

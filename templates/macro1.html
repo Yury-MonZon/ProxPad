@@ -323,6 +323,7 @@
 
                 // Show output
                 showMacroOutput(data);
+                try{ if (data && data.screensaver) parent.postMessage('proxpad-screensaver', '*'); }catch(e){}
             })
             .catch(error => {
                 button.classList.remove('running');
