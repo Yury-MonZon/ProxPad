@@ -94,6 +94,10 @@ class MacroHandler:
         
         self._initialize_controllers()
 
+    def _key_hold(self):
+        """Hold key for a short duration to ensure system registers it."""
+        time.sleep(0.01)
+
     def execute_media_command_pynput(self, key_str):
         """Execute media commands using pynput keyboard controller.
 
@@ -110,7 +114,7 @@ class MacroHandler:
             if uinput_key:
                 try:
                     self.uinput_device.emit(uinput_key, 1)
-                    time.sleep(0.02)
+                    self._key_hold()
                     self.uinput_device.emit(uinput_key, 0)
                     self.uinput_device.syn()
                     self.logger.info(f"🎵 Media key executed via uinput: {key_str}")
@@ -403,7 +407,7 @@ class MacroHandler:
                 uinput_key = self._get_uinput_key_code(norm_key_str)
         if uinput_key:
             self.uinput_device.emit(uinput_key, 1)
-            time.sleep(0.02)
+            self._key_hold()
             self.uinput_device.emit(uinput_key, 0)
             self.uinput_device.syn()
             self.logger.info(f"✅ uinput key pressed: {key_str}")
@@ -475,7 +479,7 @@ class MacroHandler:
                     uinput_key = self._get_uinput_key_code(kstr)
             if uinput_key:
                 self.uinput_device.emit(uinput_key, 1)
-                time.sleep(0.02)
+                self._key_hold()
                 self.uinput_device.emit(uinput_key, 0)
                 self.uinput_device.syn()
                 return
@@ -485,13 +489,13 @@ class MacroHandler:
             if isinstance(key, str) and len(key) == 1:
                 kc = KeyCode.from_char(key)
                 self.pynput_controller.press(kc)
-                time.sleep(0.02)
+                self._key_hold()
                 self.pynput_controller.release(kc)
                 return
         except Exception:
             pass
         self.pynput_controller.press(key)
-        time.sleep(0.02)
+        self._key_hold()
         self.pynput_controller.release(key)
     
     def _execute_key_combination(self, key_str):
@@ -546,20 +550,20 @@ class MacroHandler:
             for code in uinput_keys[:-1]:
                 self.uinput_device.emit(code, 1)
                 self.uinput_device.syn()
-                time.sleep(0.02)  # Slightly longer hold for modifiers
+                self._key_hold()
             # Press and release final key
-            time.sleep(0.05)  # Wait before pressing main key
+            self._key_hold()
             self.uinput_device.emit(uinput_keys[-1], 1)
             self.uinput_device.syn()
-            time.sleep(0.10)  # Hold the main key longer for alt+tab
+            self._key_hold()
             self.uinput_device.emit(uinput_keys[-1], 0)
             self.uinput_device.syn()
-            time.sleep(0.02)
+            self._key_hold()
             # Release all modifiers in reverse
             for code in reversed(uinput_keys[:-1]):
                 self.uinput_device.emit(code, 0)
                 self.uinput_device.syn()
-                time.sleep(0.02)
+                self._key_hold()
             self.uinput_device.syn()
             self.logger.info(f"✅ uinput combo executed: {keys_to_press}")
             return True
@@ -710,7 +714,7 @@ class MacroHandler:
             
             # Press and release the final key
             self.pynput_controller.press(final_key)
-            time.sleep(0.05)  # Brief hold
+            self._key_hold()
             self.pynput_controller.release(final_key)
             
             # Exit all contexts in reverse order
@@ -838,7 +842,7 @@ class MacroHandler:
             success = success and ok
             # Only add default delay if not a delay: action
             if not act.startswith('delay:'):
-                time.sleep(0.05)  # Short delay between actions for reliability
+                self._key_hold()
         return success
             
     def type_text(self, text):
@@ -853,15 +857,15 @@ class MacroHandler:
                     if 'A' <= char <= 'Z':
                         # Press shift, then the lowercase letter
                         self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 1)
-                        time.sleep(0.01)
+                        self._key_hold()
                         key_code = keymap.get(char.lower()) if keymap else None
                         if key_code:
                             self.uinput_device.emit(key_code, 1)
-                            time.sleep(0.02)
+                            self._key_hold()
                             self.uinput_device.emit(key_code, 0)
                         self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 0)
                         self.uinput_device.syn()
-                        time.sleep(0.01)
+                        self._key_hold()
                         continue
                     
                     # Handle lowercase letters and numbers
@@ -869,10 +873,10 @@ class MacroHandler:
                         key_code = keymap.get(char) if keymap else None
                         if key_code:
                             self.uinput_device.emit(key_code, 1)
-                            time.sleep(0.02)
+                            self._key_hold()
                             self.uinput_device.emit(key_code, 0)
                             self.uinput_device.syn()
-                            time.sleep(0.01)
+                            self._key_hold()
                         continue
                     
                     # Handle symbols that require shift
@@ -887,13 +891,13 @@ class MacroHandler:
                     
                     if char in shift_symbols:
                         self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 1)
-                        time.sleep(0.01)
+                        self._key_hold()
                         self.uinput_device.emit(shift_symbols[char], 1)
-                        time.sleep(0.02)
+                        self._key_hold()
                         self.uinput_device.emit(shift_symbols[char], 0)
                         self.uinput_device.emit(uinput.KEY_LEFTSHIFT, 0)
                         self.uinput_device.syn()
-                        time.sleep(0.01)
+                        self._key_hold()
                         continue
                     
                     # Handle direct symbols (no shift needed)
@@ -906,19 +910,19 @@ class MacroHandler:
                     
                     if char in direct_symbols:
                         self.uinput_device.emit(direct_symbols[char], 1)
-                        time.sleep(0.02)
+                        self._key_hold()
                         self.uinput_device.emit(direct_symbols[char], 0)
                         self.uinput_device.syn()
-                        time.sleep(0.01)
+                        self._key_hold()
                         continue
                     
                     # Handle space separately
                     if char == ' ':
                         self.uinput_device.emit(uinput.KEY_SPACE, 1)
-                        time.sleep(0.02)
+                        self._key_hold()
                         self.uinput_device.emit(uinput.KEY_SPACE, 0)
                         self.uinput_device.syn()
-                        time.sleep(0.01)
+                        self._key_hold()
                         continue
                     
                     # If we can't find the character, try fallback
@@ -931,7 +935,7 @@ class MacroHandler:
                         from pynput.keyboard import KeyCode
                         kc = KeyCode.from_char(char)
                         self.pynput_controller.press(kc)
-                        time.sleep(0.02)
+                        self._key_hold()
                         self.pynput_controller.release(kc)
                     except Exception:
                         # Try KeyCode for symbols that fail
@@ -939,7 +943,7 @@ class MacroHandler:
                             from pynput.keyboard import KeyCode
                             keycode = KeyCode.from_char(char)
                             self.pynput_controller.press(keycode)
-                            time.sleep(0.02)
+                            self._key_hold()
                             self.pynput_controller.release(keycode)
                         except Exception:
                             self.logger.warning(f"⚠️ Could not type symbol: {char}")
