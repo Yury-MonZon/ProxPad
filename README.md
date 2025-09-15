@@ -1,5 +1,5 @@
-# ProxPad - Proxmox VM Management Stream Deck/Macropad
-ProxPad is a web-based Stream Deck/Macropad for managing Proxmox virtual machines and controlling macros/media actions, designed for mobile-first usability and seamless resource conflict management. It can also operate independently of Proxmox for general macro/media control.
+# ProxPad - Proxmox VM Management Stream Deck/Macro pad/Display pad
+ProxPad is a web-based Stream Deck/Macro pad for managing Proxmox virtual machines and controlling macros/media actions, designed for mobile-first usability and seamless resource conflict management. It can also operate independently of Proxmox for general macro/media control.
 
 - **Server Component (`proxpad.py`)**: Runs on your Proxmox server or in an LXC container, providing the web interface and VM management features.
 - **Client Component (`macro_handler.py`)**: A lightweight, cross-platform Python script for Linux or Windows VMs, enabling macro execution and media control with minimal dependencies.
@@ -30,7 +30,7 @@ All configuration is centralized in `config.py` on the server, making setup and 
 - **Install / Update Helpers**: Provided install scripts (deps, uinput) and run_me.sh for background/startup use.
 
 ## Prerequisites
-- Proxmox VE server (macropad can work without it)
+- Proxmox VE server (macro pad can work without it)
 - Python 3.6+
 - Flask
 - proxmoxer
@@ -97,8 +97,10 @@ For more details, see the comments in `install_uinput.sh`.
 ## Supported macro commands
    - `key:win+l` or `key:f` press the key or key combo
    - `exe:calc` or `exe:c:\totalcmd\totalcmd.exe` execute specified binary  
-   - `url:https://google.com` open url in default browser
    - `type:some text here` type the specified text, '\' has to be input as '\\'
+   - `delay:0.1` wait for 0.1s
+   - `url:https://google.com` open url in default browser
+   - `key:win; delay:0.1; type:calc; delay:0.5; key:enter` works too, the `space` after `;` is optional
 
 ## Running ProxPad
 

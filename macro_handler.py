@@ -56,239 +56,17 @@ else:
     print(f"[ProxPad] Unknown OS: {system}. Key emulation may not work.")
 
 class MacroHandler:
-    """Cross-platform macro handler for UDP broadcast commands."""
-    
-    def __init__(self, port=5005):
-        """Initialize the macro handler.
-        
-        Args:
-            port (int): UDP port to listen on (default: 5005)
-        """
-        self.port = port
-        self.running = True
-        self.system = platform.system().lower()
-        
-        # Setup logging with proper formatting
-        self._setup_logging()
-        
-        # Initialize input controllers
-        self.keyboard_controller = None
-        self.uinput_device = None
-        
-        self._initialize_controllers()
-        # Compute key mappings once
-        self.key_mapping = self._get_key_mapping()
-        self.modifier_mapping = self._get_modifier_mapping()
-    
-    def _setup_logging(self):
-        """Setup logging configuration."""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
-    
-    def _initialize_controllers(self):
-        """Initialize keyboard and uinput controllers."""
-        # Initialize pynput keyboard controller
-        if PYNPUT_AVAILABLE:
-            self.keyboard_controller = keyboard.Controller()
-            self.logger.info("✅ pynput keyboard controller initialized")
-        else:
-            self.logger.warning("⚠️  pynput not available - keyboard functionality disabled")
-        
-        # Initialize uinput for Linux Super key combinations
-        if UINPUT_AVAILABLE and self.system == 'linux':
-            self._initialize_uinput()
-        
-        self.logger.info(f"MacroHandler initialized for {self.system} platform")
-    
-    def _initialize_uinput(self):
-        """Initialize uinput device with all needed key codes (explicit list)."""
-        try:
-            # Explicitly list all common keys, modifiers, special, and media keys
-            uinput_keys = []
-            # Modifiers
-            uinput_keys += [
-                uinput.KEY_LEFTCTRL, uinput.KEY_RIGHTCTRL,
-                uinput.KEY_LEFTALT, uinput.KEY_RIGHTALT,
-                uinput.KEY_LEFTSHIFT, uinput.KEY_RIGHTSHIFT,
-                uinput.KEY_LEFTMETA, uinput.KEY_RIGHTMETA,
-            ]
-            # Letters
-            uinput_keys += [getattr(uinput, f'KEY_{chr(i).upper()}') for i in range(ord('a'), ord('z')+1)]
-            # Digits
-            uinput_keys += [getattr(uinput, f'KEY_{i}') for i in range(0, 10)]
-            # Function keys
-            uinput_keys += [getattr(uinput, f'KEY_F{i}') for i in range(1, 21)]
-            # Arrow keys
-            uinput_keys += [uinput.KEY_UP, uinput.KEY_DOWN, uinput.KEY_LEFT, uinput.KEY_RIGHT]
-            # Common special keys
-            uinput_keys += [
-                uinput.KEY_ENTER, uinput.KEY_TAB, uinput.KEY_SPACE, uinput.KEY_ESC,
-                uinput.KEY_BACKSPACE, uinput.KEY_DELETE, uinput.KEY_HOME, uinput.KEY_END,
-                uinput.KEY_PAGEUP, uinput.KEY_PAGEDOWN, uinput.KEY_CAPSLOCK,
-                uinput.KEY_NUMLOCK, uinput.KEY_SCROLLLOCK, uinput.KEY_INSERT,
-                uinput.KEY_MENU, uinput.KEY_PAUSE, uinput.KEY_PRINT,
-            ]
-            # Symbol and punctuation keys
-            uinput_keys += [
-                uinput.KEY_MINUS, uinput.KEY_EQUAL, uinput.KEY_LEFTBRACE, uinput.KEY_RIGHTBRACE,
-                uinput.KEY_BACKSLASH, uinput.KEY_SEMICOLON, uinput.KEY_APOSTROPHE,
-                uinput.KEY_GRAVE, uinput.KEY_COMMA, uinput.KEY_DOT, uinput.KEY_SLASH,
-            ]
-            # Media keys (if available)
-            for media_key in ['KEY_VOLUMEUP', 'KEY_VOLUMEDOWN', 'KEY_MUTE', 'KEY_PLAYPAUSE', 'KEY_NEXTSONG', 'KEY_PREVIOUSSONG']:
-                key_code = getattr(uinput, media_key, None)
-                if key_code:
-                    uinput_keys.append(key_code)
-            # Remove duplicates
-            uinput_keys = list(dict.fromkeys(uinput_keys))
-            self.uinput_device = uinput.Device(uinput_keys)
-            self.logger.info(f"✅ uinput device initialized with {len(uinput_keys)} keys (explicit list)")
-            # Build a name->code map (e.g., 'KEY_A' -> uinput.KEY_A) for combo resolution
-            try:
-                self.uinput_name_map = {}
-                # Letters
-                for i in range(ord('a'), ord('z')+1):
-                    name = f'KEY_{chr(i).upper()}'
-                    if hasattr(uinput, name):
-                        self.uinput_name_map[name] = getattr(uinput, name)
-                # Digits
-                for i in range(0, 10):
-                    name = f'KEY_{i}'
-                    if hasattr(uinput, name):
-                        self.uinput_name_map[name] = getattr(uinput, name)
-                # Function keys
-                for i in range(1, 21):
-                    name = f'KEY_F{i}'
-                    if hasattr(uinput, name):
-                        self.uinput_name_map[name] = getattr(uinput, name)
-                # Common named keys
-                named_keys = [
-                    'KEY_TAB','KEY_ENTER','KEY_SPACE','KEY_ESC','KEY_BACKSPACE','KEY_DELETE','KEY_HOME','KEY_END',
-                    'KEY_PAGEUP','KEY_PAGEDOWN','KEY_CAPSLOCK','KEY_NUMLOCK','KEY_SCROLLLOCK','KEY_INSERT','KEY_MENU',
-                    'KEY_PAUSE','KEY_PRINT','KEY_UP','KEY_DOWN','KEY_LEFT','KEY_RIGHT','KEY_LEFTCTRL','KEY_RIGHTCTRL',
-                    'KEY_LEFTALT','KEY_RIGHTALT','KEY_LEFTSHIFT','KEY_RIGHTSHIFT','KEY_LEFTMETA','KEY_RIGHTMETA',
-                    'KEY_MINUS','KEY_EQUAL','KEY_LEFTBRACE','KEY_RIGHTBRACE','KEY_BACKSLASH','KEY_SEMICOLON','KEY_APOSTROPHE',
-                    'KEY_GRAVE','KEY_COMMA','KEY_DOT','KEY_SLASH'
-                ]
-                for name in named_keys:
-                    if hasattr(uinput, name):
-                        self.uinput_name_map[name] = getattr(uinput, name)
-            except Exception:
-                self.uinput_name_map = {}
-            # Cache common uinput key lookups to avoid repeated getattr calls later
-            try:
-                # Basic char mappings
-                self.uinput_key_map = {}
-                for i in range(ord('a'), ord('z')+1):
-                    self.uinput_key_map[chr(i)] = getattr(uinput, f'KEY_{chr(i).upper()}')
-                for i in range(0, 10):
-                    self.uinput_key_map[str(i)] = getattr(uinput, f'KEY_{i}')
-
-                # Common special keys
-                self.uinput_key_map.update({
-                    'enter': uinput.KEY_ENTER,
-                    'tab': uinput.KEY_TAB,
-                    'space': uinput.KEY_SPACE,
-                    'esc': uinput.KEY_ESC,
-                    'escape': uinput.KEY_ESC,
-                    'backspace': uinput.KEY_BACKSPACE,
-                    'delete': uinput.KEY_DELETE,
-                    'home': uinput.KEY_HOME,
-                    'end': uinput.KEY_END,
-                    'page_up': uinput.KEY_PAGEUP,
-                    'page_down': uinput.KEY_PAGEDOWN,
-                    'caps_lock': uinput.KEY_CAPSLOCK,
-                    'num_lock': uinput.KEY_NUMLOCK,
-                    'scroll_lock': uinput.KEY_SCROLLLOCK,
-                    'insert': uinput.KEY_INSERT,
-                    'menu': uinput.KEY_MENU,
-                    'pause': uinput.KEY_PAUSE,
-                    'print_screen': uinput.KEY_PRINT,
-                    'print': uinput.KEY_PRINT,
-                    'up': uinput.KEY_UP,
-                    'down': uinput.KEY_DOWN,
-                    'left': uinput.KEY_LEFT,
-                    'right': uinput.KEY_RIGHT,
-                    'f1': getattr(uinput, 'KEY_F1'), 'f2': getattr(uinput, 'KEY_F2'),
-                })
-                # Add remaining function keys
-                for i in range(3, 21):
-                    self.uinput_key_map[f'f{i}'] = getattr(uinput, f'KEY_F{i}')
-
-                # Symbol/punctuation keys
-                self.uinput_key_map.update({
-                    '-': uinput.KEY_MINUS,
-                    '_': uinput.KEY_MINUS,
-                    '=': uinput.KEY_EQUAL,
-                    '+': uinput.KEY_EQUAL,
-                    '[': uinput.KEY_LEFTBRACE,
-                    '{': uinput.KEY_LEFTBRACE,
-                    ']': uinput.KEY_RIGHTBRACE,
-                    '}': uinput.KEY_RIGHTBRACE,
-                    '\\': uinput.KEY_BACKSLASH,
-                    '|': uinput.KEY_BACKSLASH,
-                    ';': uinput.KEY_SEMICOLON,
-                    ':': uinput.KEY_SEMICOLON,
-                    "'": uinput.KEY_APOSTROPHE,
-                    '"': uinput.KEY_APOSTROPHE,
-                    ',': uinput.KEY_COMMA,
-                    '<': uinput.KEY_COMMA,
-                    '.': uinput.KEY_DOT,
-                    '>': uinput.KEY_DOT,
-                    '/': uinput.KEY_SLASH,
-                    '?': uinput.KEY_SLASH,
-                    '`': uinput.KEY_GRAVE,
-                    '~': uinput.KEY_GRAVE,
-                    ' ': uinput.KEY_SPACE,
-                })
-
-                # Media mapping
-                self.uinput_media_map = {
-                    'play': getattr(uinput, 'KEY_PLAYPAUSE', None),
-                    'media_play_pause': getattr(uinput, 'KEY_PLAYPAUSE', None),
-                    'playpause': getattr(uinput, 'KEY_PLAYPAUSE', None),
-                    'next': getattr(uinput, 'KEY_NEXTSONG', None),
-                    'media_next': getattr(uinput, 'KEY_NEXTSONG', None),
-                    'next_track': getattr(uinput, 'KEY_NEXTSONG', None),
-                    'previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-                    'prev': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-                    'media_previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-                    'prev_track': getattr(uinput, 'KEY_PREVIOUSSONG', None),
-                    'volume_up': getattr(uinput, 'KEY_VOLUMEUP', None),
-                    'vol_up': getattr(uinput, 'KEY_VOLUMEUP', None),
-                    'volume_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
-                    'vol_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
-                    'mute': getattr(uinput, 'KEY_MUTE', None),
-                    'volume_mute': getattr(uinput, 'KEY_MUTE', None),
-                }
-            except Exception:
-                # In case any attribute access fails unexpectedly, keep maps empty
-                self.uinput_key_map = {}
-                self.uinput_media_map = {}
-                self.uinput_name_map = {}
-        except PermissionError:
-            self.logger.warning("⚠️  uinput requires sudo privileges for key emulation")
-            self.logger.warning("   Run with: sudo python macro_handler.py")
-            self.uinput_device = None
-        except Exception as e:
-            self.logger.warning(f"❌ Failed to initialize uinput: {e}")
-            self.uinput_device = None
-    
     def execute_media_command(self, key_str):
         """Execute media commands using pynput keyboard controller.
         
         Args:
             key_str (str): Media key command string
-            
+        
         Returns:
             bool: True if command was executed successfully
         """
         # Media key mappings (pynput and uinput)
         media_mappings = {
-            # Use getattr on Key to avoid AttributeError when pynput Key lacks media attrs
             'play': (getattr(Key, 'media_play_pause', None) if Key else None),
             'media_play_pause': (getattr(Key, 'media_play_pause', None) if Key else None),
             'playpause': (getattr(Key, 'media_play_pause', None) if Key else None),
@@ -337,6 +115,235 @@ class MacroHandler:
         except Exception as e:
             self.logger.error(f"❌ Media key error for '{key_str}': {e}")
             return False
+        
+    def __init__(self, port=5005):
+        """Initialize the macro handler.
+        
+        Args:
+            port (int): UDP port to listen on (default: 5005)
+        """
+        self.port = port
+        self.running = True
+        self.system = platform.system().lower()
+        
+        # Setup logging with proper formatting
+        self._setup_logging()
+        
+        # Initialize input controllers
+        self.keyboard_controller = None
+        self.uinput_device = None
+        
+        self._initialize_controllers()
+        # Compute key mappings once
+        self.key_mapping = self._get_key_mapping()
+        self.modifier_mapping = self._get_modifier_mapping()
+    
+    def _setup_logging(self):
+        """Setup logging configuration."""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+        self.logger = logging.getLogger(__name__)
+    
+    def _initialize_controllers(self):
+        """Initialize keyboard and uinput controllers."""
+        # On Windows, always use pynput
+        if self.system == 'windows':
+            if PYNPUT_AVAILABLE:
+                self.keyboard_controller = keyboard.Controller()
+                self.logger.info("✅ pynput keyboard controller initialized")
+            else:
+                self.logger.warning("⚠️  pynput not available - keyboard functionality disabled")
+        # On Linux, try uinput first, only fall back to pynput if uinput fails
+        elif self.system == 'linux':
+            if UINPUT_AVAILABLE:
+                try:
+                    self._initialize_uinput()
+                    if self.uinput_device:
+                        self.logger.info("✅ uinput device initialized")
+                        # Only use uinput, do NOT initialize pynput
+                        self.keyboard_controller = None
+                        self.logger.info(f"MacroHandler initialized for {self.system} platform")
+                        return
+                except Exception as e:
+                    self.logger.warning(f"❌ uinput initialization failed: {e}")
+            # If uinput is not available or failed, use pynput as fallback
+            if PYNPUT_AVAILABLE:
+                self.keyboard_controller = keyboard.Controller()
+                self.logger.info("✅ pynput keyboard controller initialized (fallback)")
+            else:
+                self.logger.warning("⚠️  pynput not available - keyboard functionality disabled")
+        else:
+            self.logger.warning(f"Unknown OS: {self.system}. Key emulation may not work.")
+        self.logger.info(f"MacroHandler initialized for {self.system} platform")
+    
+    def _initialize_uinput(self):
+        """Initialize uinput device with all needed key codes (explicit list)."""
+        try:
+            self.uinput_name_map = {}
+            # Letters
+            for i in range(ord('a'), ord('z')+1):
+                name = f'KEY_{chr(i).upper()}'
+                if hasattr(uinput, name):
+                    self.uinput_name_map[name] = getattr(uinput, name)
+            # Digits
+            for i in range(0, 10):
+                name = f'KEY_{i}'
+                if hasattr(uinput, name):
+                    self.uinput_name_map[name] = getattr(uinput, name)
+            # Function keys
+            for i in range(1, 21):
+                name = f'KEY_F{i}'
+                if hasattr(uinput, name):
+                    self.uinput_name_map[name] = getattr(uinput, name)
+            # Common named keys
+            named_keys = [
+                'KEY_TAB','KEY_ENTER','KEY_SPACE','KEY_ESC','KEY_BACKSPACE','KEY_DELETE','KEY_HOME','KEY_END',
+                'KEY_PAGEUP','KEY_PAGEDOWN','KEY_CAPSLOCK','KEY_NUMLOCK','KEY_SCROLLLOCK','KEY_INSERT','KEY_MENU',
+                'KEY_PAUSE','KEY_PRINT','KEY_UP','KEY_DOWN','KEY_LEFT','KEY_RIGHT','KEY_LEFTCTRL','KEY_RIGHTCTRL',
+                'KEY_LEFTALT','KEY_RIGHTALT','KEY_LEFTSHIFT','KEY_RIGHTSHIFT','KEY_LEFTMETA','KEY_RIGHTMETA',
+                'KEY_MINUS','KEY_EQUAL','KEY_LEFTBRACE','KEY_RIGHTBRACE','KEY_BACKSLASH','KEY_SEMICOLON','KEY_APOSTROPHE',
+                'KEY_GRAVE','KEY_COMMA','KEY_DOT','KEY_SLASH'
+            ]
+            for name in named_keys:
+                if hasattr(uinput, name):
+                    self.uinput_name_map[name] = getattr(uinput, name)
+
+            # Build the full set of events for the uinput device
+            all_events = list(self.uinput_name_map.values())
+            # Create the uinput device
+            self.uinput_device = uinput.Device(all_events, name="ProxPad Virtual Keyboard")
+
+        except Exception:
+            self.uinput_name_map = {}
+            self.uinput_device = None
+        # Cache common uinput key lookups to avoid repeated getattr calls later
+        try:
+            # Basic char mappings
+            self.uinput_key_map = {}
+            for i in range(ord('a'), ord('z')+1):
+                self.uinput_key_map[chr(i)] = getattr(uinput, f'KEY_{chr(i).upper()}')
+            for i in range(0, 10):
+                self.uinput_key_map[str(i)] = getattr(uinput, f'KEY_{i}')
+
+            # Common special keys
+            self.uinput_key_map.update({
+                'enter': uinput.KEY_ENTER,
+                'tab': uinput.KEY_TAB,
+                'space': uinput.KEY_SPACE,
+                'esc': uinput.KEY_ESC,
+                'escape': uinput.KEY_ESC,
+                'backspace': uinput.KEY_BACKSPACE,
+                'delete': uinput.KEY_DELETE,
+                'home': uinput.KEY_HOME,
+                'end': uinput.KEY_END,
+                'page_up': uinput.KEY_PAGEUP,
+                'page_down': uinput.KEY_PAGEDOWN,
+                'caps_lock': uinput.KEY_CAPSLOCK,
+                'num_lock': uinput.KEY_NUMLOCK,
+                'scroll_lock': uinput.KEY_SCROLLLOCK,
+                'insert': uinput.KEY_INSERT,
+                'menu': uinput.KEY_MENU,
+                'pause': uinput.KEY_PAUSE,
+                'print_screen': uinput.KEY_PRINT,
+                'print': uinput.KEY_PRINT,
+                'up': uinput.KEY_UP,
+                'down': uinput.KEY_DOWN,
+                'left': uinput.KEY_LEFT,
+                'right': uinput.KEY_RIGHT,
+                'f1': getattr(uinput, 'KEY_F1'), 'f2': getattr(uinput, 'KEY_F2'),
+            })
+            # Add remaining function keys
+            for i in range(3, 21):
+                self.uinput_key_map[f'f{i}'] = getattr(uinput, f'KEY_F{i}')
+
+            # Symbol/punctuation keys
+            self.uinput_key_map.update({
+                '-': uinput.KEY_MINUS,
+                '_': uinput.KEY_MINUS,
+                '=': uinput.KEY_EQUAL,
+                '+': uinput.KEY_EQUAL,
+                '[': uinput.KEY_LEFTBRACE,
+                '{': uinput.KEY_LEFTBRACE,
+                ']': uinput.KEY_RIGHTBRACE,
+                '}': uinput.KEY_RIGHTBRACE,
+                '\\': uinput.KEY_BACKSLASH,
+                '|': uinput.KEY_BACKSLASH,
+                ';': uinput.KEY_SEMICOLON,
+                ':': uinput.KEY_SEMICOLON,
+                "'": uinput.KEY_APOSTROPHE,
+                '"': uinput.KEY_APOSTROPHE,
+                ',': uinput.KEY_COMMA,
+                '<': uinput.KEY_COMMA,
+                '.': uinput.KEY_DOT,
+                '>': uinput.KEY_DOT,
+                '/': uinput.KEY_SLASH,
+                '?': uinput.KEY_SLASH,
+                '`': uinput.KEY_GRAVE,
+                '~': uinput.KEY_GRAVE,
+                ' ': uinput.KEY_SPACE,
+                'cmd': uinput.KEY_LEFTMETA,
+                'win': uinput.KEY_LEFTMETA,
+                'super': uinput.KEY_LEFTMETA,
+            })
+
+            # Media mapping
+            self.uinput_media_map = {
+                'play': getattr(uinput, 'KEY_PLAYPAUSE', None),
+                'media_play_pause': getattr(uinput, 'KEY_PLAYPAUSE', None),
+                'playpause': getattr(uinput, 'KEY_PLAYPAUSE', None),
+                'next': getattr(uinput, 'KEY_NEXTSONG', None),
+                'media_next': getattr(uinput, 'KEY_NEXTSONG', None),
+                'next_track': getattr(uinput, 'KEY_NEXTSONG', None),
+                'previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                'prev': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                'media_previous': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                'prev_track': getattr(uinput, 'KEY_PREVIOUSSONG', None),
+                'volume_up': getattr(uinput, 'KEY_VOLUMEUP', None),
+                'vol_up': getattr(uinput, 'KEY_VOLUMEUP', None),
+                'volume_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
+                'vol_down': getattr(uinput, 'KEY_VOLUMEDOWN', None),
+                'mute': getattr(uinput, 'KEY_MUTE', None),
+                'volume_mute': getattr(uinput, 'KEY_MUTE', None),
+            }
+        except Exception:
+            # In case any attribute access fails unexpectedly, keep maps empty
+            self.uinput_key_map = {}
+            self.uinput_media_map = {}
+            self.uinput_name_map = {}
+        except PermissionError:
+            self.logger.warning("⚠️  uinput requires sudo privileges for key emulation")
+            self.logger.warning("   Run with: sudo python macro_handler.py")
+            self.uinput_device = None
+        except Exception as e:
+            self.logger.warning(f"❌ Failed to initialize uinput: {e}")
+            self.uinput_device = None
+    
+    def execute_program(self, exe_str):
+        """Execute program directly.
+        
+        Args:
+            exe_str (str): Program command string (e.g., "exe:calc", "calculator")
+        
+        Returns:
+            bool: True if program was launched successfully
+        """
+        try:
+            # Remove exe: prefix if present
+            final_command = exe_str[4:] if exe_str.startswith('exe:') else exe_str
+            self.logger.info(f"🚀 Launching program: {final_command}")
+            process = subprocess.Popen(
+                final_command,
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            self.logger.info(f"✅ Program launched successfully: {final_command} (PID: {process.pid})")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Error launching program '{exe_str}': {e}")
     
     def execute_key_command(self, key_str):
         """Execute keyboard command - supports single keys and combinations.
@@ -347,8 +354,8 @@ class MacroHandler:
         Returns:
             bool: True if command was executed successfully
         """
-        if not self.keyboard_controller:
-            self.logger.error("❌ Keyboard controller not available - key commands disabled")
+        if not (hasattr(self, 'uinput_device') and self.uinput_device) and not self.keyboard_controller:
+            self.logger.error("❌ No input device available - key commands disabled")
             return False
             
         # Normalize key string by removing prefixes
@@ -367,23 +374,23 @@ class MacroHandler:
             return False
     
     def _normalize_key_string(self, key_str):
-        """Normalize key string by removing common prefixes.
-        
-        Args:
-            key_str (str): Raw key string
-            
-        Returns:
-            str: Normalized key string
-        """
+        """Normalize key string by removing common prefixes and mapping synonyms."""
         normalized = key_str
-        
         # Remove common prefixes
         prefixes = ['key:', 'Key.']
         for prefix in prefixes:
             if normalized.startswith(prefix):
                 normalized = normalized[len(prefix):]
                 break
-                
+        # Map synonyms for OS modifier keys
+        synonyms = {
+            'win': 'cmd', 'super': 'cmd', 'cmd': 'cmd',
+            'win_l': 'cmd', 'super_l': 'cmd', 'cmd_l': 'cmd',
+            'win_r': 'cmd', 'super_r': 'cmd', 'cmd_r': 'cmd',
+        }
+        norm_lower = normalized.lower()
+        if norm_lower in synonyms:
+            normalized = 'cmd'
         return normalized
     
     def _execute_single_key(self, key_str):
@@ -398,31 +405,29 @@ class MacroHandler:
         # Try media commands first
         if self.execute_media_command(key_str):
             return True
-        # Always use uinput for print_screen if available
-        if key_str in ('print_screen', 'print') and hasattr(self, 'uinput_device') and self.uinput_device:
-            uinput_key = self._get_uinput_key_code(key_str)
-            if uinput_key:
-                self.uinput_device.emit(uinput_key, 1)
-                time.sleep(0.02)
-                self.uinput_device.emit(uinput_key, 0)
-                self.uinput_device.syn()
-                self.logger.info(f"🔑 uinput key pressed: {key_str}")
-                return True
-        # Use uinput for all other keys if available
+        # Normalize and map key
+        norm_key_str = key_str.lower()
+        if norm_key_str in ('win', 'super', 'cmd'):
+            norm_key_str = 'cmd'
+        uinput_key = None
         if hasattr(self, 'uinput_device') and self.uinput_device:
-            uinput_key = self._get_uinput_key_code(key_str)
-            if uinput_key:
-                self.uinput_device.emit(uinput_key, 1)
-                time.sleep(0.02)
-                self.uinput_device.emit(uinput_key, 0)
-                self.uinput_device.syn()
-                self.logger.info(f"🔑 uinput key pressed: {key_str}")
-                return True
+            # Always resolve Win/Super/Cmd to KEY_LEFTMETA for uinput
+            if norm_key_str == 'cmd':
+                uinput_key = getattr(uinput, 'KEY_LEFTMETA', None)
+            else:
+                uinput_key = self._get_uinput_key_code(norm_key_str)
+        if uinput_key:
+            self.uinput_device.emit(uinput_key, 1)
+            time.sleep(0.02)
+            self.uinput_device.emit(uinput_key, 0)
+            self.uinput_device.syn()
+            self.logger.info(f"🔑 uinput key pressed: {key_str}")
+            return True
         # Fallback to pynput
-        if key_str in self.key_mapping:
-            key = self.key_mapping[key_str]
+        key = self.key_mapping.get(key_str)
+        if key:
             self._press_and_release_key(key)
-            self.logger.info(f"🔑 Special key pressed: {key_str}")
+            self.logger.info(f"🔑 pynput key pressed: {key_str}")
             return True
         if len(key_str) == 1:
             self._press_and_release_key(key_str)
@@ -432,18 +437,17 @@ class MacroHandler:
         return False
     
     def _get_key_mapping(self):
-        """Get comprehensive key mapping dictionary.
-        
-        Returns:
-            dict: Mapping of string names to pynput Key objects
-        """
-        return {
+        """Get comprehensive key mapping dictionary, including synonyms for OS modifier keys."""
+        mapping = {
             # Modifier keys
             'alt': Key.alt, 'alt_l': Key.alt_l, 'alt_r': Key.alt_r, 'alt_gr': Key.alt_gr,
             'ctrl': Key.ctrl, 'ctrl_l': Key.ctrl_l, 'ctrl_r': Key.ctrl_r,
             'shift': Key.shift, 'shift_l': Key.shift_l, 'shift_r': Key.shift_r,
             'cmd': Key.cmd, 'cmd_l': Key.cmd_l, 'cmd_r': Key.cmd_r,
-            
+            # Synonyms for OS modifier keys
+            'win': Key.cmd, 'super': Key.cmd,
+            'win_l': Key.cmd_l, 'super_l': Key.cmd_l,
+            'win_r': Key.cmd_r, 'super_r': Key.cmd_r,
             # Special keys
             'backspace': Key.backspace, 'delete': Key.delete, 'enter': Key.enter,
             'esc': Key.esc, 'escape': Key.esc, 'tab': Key.tab, 'space': Key.space,
@@ -451,35 +455,39 @@ class MacroHandler:
             'insert': Key.insert, 'home': Key.home, 'end': Key.end,
             'page_up': Key.page_up, 'page_down': Key.page_down,
             'menu': Key.menu, 'pause': Key.pause, 'print_screen': Key.print_screen,
-            
             # Arrow keys
             'up': Key.up, 'down': Key.down, 'left': Key.left, 'right': Key.right,
-            
             # Function keys
             'f1': Key.f1, 'f2': Key.f2, 'f3': Key.f3, 'f4': Key.f4, 'f5': Key.f5, 'f6': Key.f6,
             'f7': Key.f7, 'f8': Key.f8, 'f9': Key.f9, 'f10': Key.f10, 'f11': Key.f11, 'f12': Key.f12,
             'f13': Key.f13, 'f14': Key.f14, 'f15': Key.f15, 'f16': Key.f16,
             'f17': Key.f17, 'f18': Key.f18, 'f19': Key.f19, 'f20': Key.f20,
-            
             # Media keys
             'media_play_pause': Key.media_play_pause, 'media_volume_mute': Key.media_volume_mute,
             'media_volume_down': Key.media_volume_down, 'media_volume_up': Key.media_volume_up,
             'media_previous': Key.media_previous, 'media_next': Key.media_next,
         }
+        return mapping
     
     def _press_and_release_key(self, key):
-        """Press and release a key with proper timing.
-        
-        Args:
-            key: Key object or character to press
-        """
+        """Press and release a key with proper timing, always preferring uinput if available."""
         # Use uinput if available and initialized
         if hasattr(self, 'uinput_device') and self.uinput_device:
             uinput_key = None
-            if isinstance(key, str) and len(key) == 1:
-                uinput_key = self._get_uinput_key_code(key)
-            elif hasattr(key, 'name'):
-                uinput_key = self._get_uinput_key_code(key.name)
+            kstr = None
+            if isinstance(key, str):
+                kstr = key
+            elif hasattr(key, 'name') and key.name:
+                kstr = key.name
+            elif hasattr(key, 'char') and key.char:
+                kstr = key.char
+            if kstr:
+                kstr = kstr.lower()
+                # Always resolve Win/Super/Cmd to KEY_LEFTMETA for uinput
+                if kstr in ('win', 'super', 'cmd', 'leftmeta'):
+                    uinput_key = getattr(uinput, 'KEY_LEFTMETA', None)
+                else:
+                    uinput_key = self._get_uinput_key_code(kstr)
             if uinput_key:
                 self.uinput_device.emit(uinput_key, 1)
                 time.sleep(0.02)
@@ -862,33 +870,7 @@ class MacroHandler:
             self.uinput_device.emit(uinput_key, 0)
 
     
-    def execute_program(self, exe_str):
-        """Execute program directly.
-        
-        Args:
-            exe_str (str): Program command string (e.g., "exe:calc", "calculator")
-            
-        Returns:
-            bool: True if program was launched successfully
-        """
-        try:
-            # Remove exe: prefix if present
-            final_command = exe_str[4:] if exe_str.startswith('exe:') else exe_str
-            self.logger.info(f"🚀 Launching program: {final_command}")
-            return self._execute_normally(final_command)
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error launching program '{exe_str}': {e}")
-            return False
     
-    def _is_running_as_root(self):
-        """Check if currently running as root/sudo.
-        
-        Returns:
-            bool: True if running as root
-        """
-        import os
-        return os.getuid() == 0
     
     def _execute_normally(self, command):
         """Execute command normally (not as root).
@@ -916,37 +898,59 @@ class MacroHandler:
             return False
     
     def handle_command(self, data):
-        """Process received UDP command.
-        
-        Args:
-            data (dict): Command data dictionary
-            
-        Returns:
-            bool: True if command was processed successfully
-        """
+        """Process received UDP command, supporting multi-step macros with robust parsing."""
         import webbrowser
         action = data.get('action', '')
 
-        if action.startswith('key:'):
-            return self.execute_key_command(action)
-        elif action.startswith('type:'):
-            text = action[5:]
-            self.logger.info(f"⌨️ Typing: {text}")
-            return self.type_text(text)
-        elif action.startswith('exe:'):
-            return self.execute_program(action)
-        elif action.startswith('url:'):
-            url = action[4:]
-            self.logger.info(f"🌐 Opening URL: {url}")
-            try:
-                webbrowser.open(url)
-                return True
-            except Exception as e:
-                self.logger.error(f"❌ Error opening URL '{url}': {e}")
-                return False
-        else:
-            self.logger.warning(f"⚠️  Unknown action format: {action}")
-            return False
+        def split_actions(s):
+            """
+            Split macro string into actions at semicolons followed by optional whitespace and a valid keyword.
+            E.g. 'type:abc;def; key:enter' => ['type:abc;def', 'key:enter']
+            """
+            import re
+            keywords = ('key:', 'type:', 'exe:', 'url:', 'delay:')
+            # Build regex: semicolon, optional whitespace, then keyword
+            pattern = r';\s*(?=' + '|'.join(re.escape(kw) for kw in keywords) + ')'
+            parts = re.split(pattern, s)
+            return [x.strip() for x in parts if x.strip()]
+
+        actions = split_actions(action)
+        success = True
+        for act in actions:
+            if act.startswith('delay:'):
+                try:
+                    delay_val = float(act[6:])
+                    self.logger.info(f"⏳ Delay: {delay_val} sec")
+                    time.sleep(delay_val)
+                    ok = True
+                except Exception as e:
+                    self.logger.error(f"❌ Error in delay: {e}")
+                    ok = False
+            elif act.startswith('key:'):
+                ok = self.execute_key_command(act)
+            elif act.startswith('type:'):
+                text = act[5:]
+                self.logger.info(f"⌨️ Typing: {text}")
+                ok = self.type_text(text)
+            elif act.startswith('exe:'):
+                ok = self.execute_program(act)
+            elif act.startswith('url:'):
+                url = act[4:]
+                self.logger.info(f"🌐 Opening URL: {url}")
+                try:
+                    webbrowser.open(url)
+                    ok = True
+                except Exception as e:
+                    self.logger.error(f"❌ Error opening URL '{url}': {e}")
+                    ok = False
+            else:
+                self.logger.warning(f"⚠️  Unknown action format: {act}")
+                ok = False
+            success = success and ok
+            # Only add default delay if not a delay: action
+            if not act.startswith('delay:'):
+                time.sleep(0.08)  # Short delay between actions for reliability
+        return success
             
     def type_text(self, text):
         """Type a string sequentially using uinput or pynput, handling shift for uppercase and symbols."""
