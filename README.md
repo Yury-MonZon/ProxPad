@@ -97,7 +97,7 @@ For more details, see the comments in `install_uinput.sh`.
 ## Supported macro commands
    - `key:win+l` or `key:f` press the key or key combo
    - `exe:calc` or `exe:c:\totalcmd\totalcmd.exe` execute specified binary  
-   - `type:some text here` type the specified text, '\' has to be input as '\\'
+   - `type:some text here` type the specified text, `\` has to be input as `\\`
    - `delay:0.1` wait for 0.1s
    - `url:https://google.com` open url in default browser
    - `key:win; delay:0.1; type:calc; delay:0.5; key:enter` works too, the `space` after `;` is optional
