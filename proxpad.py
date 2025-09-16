@@ -12,7 +12,6 @@ Version: 2.3
 
 import json
 import socket
-import subprocess
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -68,6 +67,24 @@ def send_broadcast_command(action: str) -> bool:
     finally:
         if sock:
             sock.close()
+
+def get_macro_pages():
+    """Get list of available macro pages from config."""
+    pages = []
+    page_num = 1
+    while True:
+        macro_attr = f'PAGE{page_num}_MACROS'
+        if hasattr(config, macro_attr):
+            pages.append({
+                'id': f'macro{page_num}',
+                'name': f'M{page_num}',
+                'route': f'/macro{page_num}',
+                'macros': getattr(config, macro_attr, [])
+            })
+            page_num += 1
+        else:
+            break
+    return pages
 
 # Global Proxmox API connection
 proxmox: Optional[ProxmoxAPI] = None
@@ -176,6 +193,7 @@ def index() -> str:
         except Exception as e:
             app.logger.error(f"❌ Dashboard error: {e}")
             error_message = str(e)
+    macro_pages = get_macro_pages()
     return render_template(
         'index.html',
         vms=vms_data,
@@ -183,7 +201,8 @@ def index() -> str:
         hide_reboot=HIDE_REBOOT,
         config=config,
         proxmox_enabled=PROXMOX_ENABLED,
-        error_message=error_message
+        error_message=error_message,
+        macro_pages=macro_pages
     )
 
 def _get_visible_vms_data() -> List[Dict[str, Any]]:
@@ -324,7 +343,9 @@ def macro1() -> str:
     try:
         app.logger.info("⌨️ Loading macro control interface 1")
         macro_configs = getattr(config, 'PAGE1_MACROS', [])
-        return render_template('macro1.html', config=config, macro_configs=macro_configs)
+        macro_rows = getattr(config, 'PAGE1_MACRO_ROWS', 4)
+        macro_cols = getattr(config, 'PAGE1_MACRO_COLS', 5)
+        return render_template('macro.html', config=config, macro_configs=macro_configs, page_num=1, macro_rows=macro_rows, macro_cols=macro_cols)
     except Exception as e:
         app.logger.error(f"❌ Macro1 interface error: {e}")
         return f"Macro1 interface error: {e}", 500
@@ -335,10 +356,28 @@ def macro2() -> str:
     try:
         app.logger.info("⌨️ Loading macro control interface 2")
         macro_configs = getattr(config, 'PAGE2_MACROS', [])
-        return render_template('macro2.html', config=config, macro_configs=macro_configs)
+        macro_rows = getattr(config, 'PAGE2_MACRO_ROWS', 4)
+        macro_cols = getattr(config, 'PAGE2_MACRO_COLS', 5)
+        return render_template('macro.html', config=config, macro_configs=macro_configs, page_num=2, macro_rows=macro_rows, macro_cols=macro_cols)
     except Exception as e:
         app.logger.error(f"❌ Macro2 interface error: {e}")
         return f"Macro2 interface error: {e}", 500
+
+@app.route('/macro<int:page_num>')
+def macro_page(page_num: int) -> str:
+    """Macro control interface for additional pages."""
+    try:
+        app.logger.info(f"⌨️ Loading macro control interface {page_num}")
+        macro_attr = f'PAGE{page_num}_MACROS'
+        macro_configs = getattr(config, macro_attr, [])
+        macro_rows_attr = f'PAGE{page_num}_MACRO_ROWS'
+        macro_cols_attr = f'PAGE{page_num}_MACRO_COLS'
+        macro_rows = getattr(config, macro_rows_attr, 4)
+        macro_cols = getattr(config, macro_cols_attr, 5)
+        return render_template('macro.html', config=config, macro_configs=macro_configs, page_num=page_num, macro_rows=macro_rows, macro_cols=macro_cols)
+    except Exception as e:
+        app.logger.error(f"❌ Macro{page_num} interface error: {e}")
+        return f"Macro{page_num} interface error: {e}", 500
 
 @app.route('/vm')
 @app.route('/proxmox')

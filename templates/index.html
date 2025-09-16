@@ -271,16 +271,13 @@
                     Media
                 </button>
             </li>
+            {% for page in macro_pages %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="macro1-tab" data-bs-toggle="tab" data-bs-target="#macro1" type="button" role="tab" aria-controls="macro1" aria-selected="false">
-                    M1
+                <button class="nav-link" id="{{ page.id }}-tab" data-bs-toggle="tab" data-bs-target="#{{ page.id }}" type="button" role="tab" aria-controls="{{ page.id }}" aria-selected="false">
+                    {{ page.name }}
                 </button>
             </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="macro2-tab" data-bs-toggle="tab" data-bs-target="#macro2" type="button" role="tab" aria-controls="macro2" aria-selected="false">
-                    M2
-                </button>
-            </li>
+            {% endfor %}
         </ul>
 
         <!-- Tab Content -->
@@ -302,15 +299,12 @@
                 <iframe src="/media" class="content-frame" title="Media Controls"></iframe>
             </div>
 
-            <!-- Macro 1 Tab -->
-            <div class="tab-pane fade" id="macro1" role="tabpanel" aria-labelledby="macro1-tab">
-                <iframe src="/macro1" class="content-frame" title="Macro 1 Commands"></iframe>
+            {% for page in macro_pages %}
+            <!-- {{ page.name }} Tab -->
+            <div class="tab-pane fade" id="{{ page.id }}" role="tabpanel" aria-labelledby="{{ page.id }}-tab">
+                <iframe src="{{ page.route }}" class="content-frame" title="{{ page.name }} Commands"></iframe>
             </div>
-
-            <!-- Macro 2 Tab -->
-            <div class="tab-pane fade" id="macro2" role="tabpanel" aria-labelledby="macro2-tab">
-                <iframe src="/macro2" class="content-frame" title="Macro 2 Commands"></iframe>
-            </div>
+            {% endfor %}
         </div>
     </div>
 
