@@ -285,7 +285,7 @@ class MacroHandler:
             combo_map[str(i)] = f'KEY_{i}'
         
         # Add function keys
-        for i in range(1, 21):
+        for i in range(1, 25):
             combo_map[f'f{i}'] = f'KEY_F{i}'
         
         return combo_map
@@ -451,6 +451,8 @@ class MacroHandler:
             'f7': Key.f7, 'f8': Key.f8, 'f9': Key.f9, 'f10': Key.f10, 'f11': Key.f11, 'f12': Key.f12,
             'f13': Key.f13, 'f14': Key.f14, 'f15': Key.f15, 'f16': Key.f16,
             'f17': Key.f17, 'f18': Key.f18, 'f19': Key.f19, 'f20': Key.f20,
+            'f21': getattr(Key, 'f21', None), 'f22': getattr(Key, 'f22', None),
+            'f23': getattr(Key, 'f23', None), 'f24': getattr(Key, 'f24', None),
             # Media keys
             'media_play_pause': Key.media_play_pause, 'media_volume_mute': Key.media_volume_mute,
             'media_volume_down': Key.media_volume_down, 'media_volume_up': Key.media_volume_up,
