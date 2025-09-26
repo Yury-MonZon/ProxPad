@@ -1,2 +1,1 @@
-nohup python3 proxpad.py
-
+nohup python3 /root/ProxPad/proxpad.py
