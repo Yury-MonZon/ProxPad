@@ -337,31 +337,6 @@ def media() -> str:
         app.logger.error(f"❌ Media interface error: {e}")
         return f"Media interface error: {e}", 500
 
-@app.route('/macro1')
-def macro1() -> str:
-    """Macro control interface page 1."""
-    try:
-        app.logger.info("⌨️ Loading macro control interface 1")
-        macro_configs = getattr(config, 'PAGE1_MACROS', [])
-        macro_rows = getattr(config, 'PAGE1_MACRO_ROWS', 4)
-        macro_cols = getattr(config, 'PAGE1_MACRO_COLS', 5)
-        return render_template('macro.html', config=config, macro_configs=macro_configs, page_num=1, macro_rows=macro_rows, macro_cols=macro_cols)
-    except Exception as e:
-        app.logger.error(f"❌ Macro1 interface error: {e}")
-        return f"Macro1 interface error: {e}", 500
-
-@app.route('/macro2')
-def macro2() -> str:
-    """Macro control interface page 2."""
-    try:
-        app.logger.info("⌨️ Loading macro control interface 2")
-        macro_configs = getattr(config, 'PAGE2_MACROS', [])
-        macro_rows = getattr(config, 'PAGE2_MACRO_ROWS', 4)
-        macro_cols = getattr(config, 'PAGE2_MACRO_COLS', 5)
-        return render_template('macro.html', config=config, macro_configs=macro_configs, page_num=2, macro_rows=macro_rows, macro_cols=macro_cols)
-    except Exception as e:
-        app.logger.error(f"❌ Macro2 interface error: {e}")
-        return f"Macro2 interface error: {e}", 500
 
 @app.route('/macro<int:page_num>')
 def macro_page(page_num: int) -> str:
