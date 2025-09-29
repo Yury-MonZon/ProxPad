@@ -346,21 +346,48 @@
             }, 100);
         });
 
-        // Pre-load iframe content on tab switch
+        // Only reload VM iframe on tab switch, others load once
         document.addEventListener('DOMContentLoaded', function() {
             const tabTriggerList = [].slice.call(document.querySelectorAll('#mainTabs button[data-bs-toggle="tab"]'));
             tabTriggerList.forEach(function (tabTrigger) {
                 tabTrigger.addEventListener('show.bs.tab', function (event) {
                     const targetPane = document.querySelector(event.target.getAttribute('data-bs-target'));
                     const iframe = targetPane.querySelector('.content-frame');
-                    
-                    // Reload iframe to ensure fresh content
-                    if (iframe && iframe.src) {
+                    // Only reload VM iframe
+                    if (iframe && iframe.src && iframe.getAttribute('src') === '/proxmox') {
                         iframe.src = iframe.src;
                     }
                 });
             });
         });
+
+        // Throttle function for high-frequency events
+        function throttle(fn, wait) {
+            let last = 0;
+            return function(...args) {
+                const now = Date.now();
+                if (now - last >= wait) {
+                    last = now;
+                    fn.apply(this, args);
+                }
+            };
+        }
+    // Cleanup timers and listeners on page unload
+    window.addEventListener('beforeunload', function() {
+        // Screensaver timers
+        if (window.timer) clearTimeout(window.timer);
+        if (window.mainInterval) clearInterval(window.mainInterval);
+        if (window.moveTimer) clearTimeout(window.moveTimer);
+        // Remove global listeners
+        if (window.throttledReset) {
+            ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt => window.removeEventListener(evt, window.throttledReset, {passive:true}));
+        }
+        window.removeEventListener('message', window.screensaverMessageHandler, false);
+        window.removeEventListener('message', window.activityMessageHandler, false);
+        // Remove screensaver style node
+        var style = document.getElementById('screensaver-style');
+        if (style && style.parentNode) style.parentNode.removeChild(style);
+    });
     </script>
     <script>
     {% if config.VIBRATION %}
@@ -403,20 +430,24 @@
             const screensaver = document.getElementById('screensaver');
             const clockEl = document.getElementById('screensaver-clock');
             let timer = null;
-            let clockInterval = null;
+            let mainInterval = null;
             let moveTimer = null;
 
             // style for overlay (kept in JS so it's easy to toggle safely)
-            const style = document.createElement('style');
-            style.textContent = `
-                #screensaver{position:fixed;inset:0;background:#000;z-index:99999;display:none;pointer-events:auto;-webkit-tap-highlight-color:transparent}
-                #screensaver.active{display:block}
-                #screensaver:focus{outline:none}
-                #screensaver *{outline: none !important; box-shadow: none !important}
-                #screensaver-clock{position:absolute;left:0;top:0;color:rgba(255,255,255,0.98);font-size:48px;padding:8px 12px;background:rgba(0,0,0,0.35);border-radius:8px;will-change:transform;cursor:pointer;user-select:none}
-                @media(max-width:600px){ #screensaver-clock{font-size:26px;padding:6px 10px}}
-            `;
-            document.head.appendChild(style);
+            let style = document.getElementById('screensaver-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'screensaver-style';
+                style.textContent = `
+                    #screensaver{position:fixed;inset:0;background:#000;z-index:99999;display:none;pointer-events:auto;-webkit-tap-highlight-color:transparent}
+                    #screensaver.active{display:block}
+                    #screensaver:focus{outline:none}
+                    #screensaver *{outline: none !important; box-shadow: none !important}
+                    #screensaver-clock{position:absolute;left:0;top:0;color:rgba(255,255,255,0.98);font-size:48px;padding:8px 12px;background:rgba(0,0,0,0.35);border-radius:8px;will-change:transform;cursor:pointer;user-select:none}
+                    @media(max-width:600px){ #screensaver-clock{font-size:26px;padding:6px 10px}}
+                `;
+                document.head.appendChild(style);
+            }
 
             // movement interval in ms (slower, constant speed) - doubled per request
             const moveInterval = 30000;
