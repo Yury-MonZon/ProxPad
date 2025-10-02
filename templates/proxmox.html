@@ -1,4 +1,25 @@
 <!DOCTYPE html>
+<script>
+function zeroLeakCleanup() {
+  document.querySelectorAll('style[data-dynamic], link[data-dynamic], script[data-dynamic], button[data-dynamic], li[data-dynamic], .overlay[data-dynamic], .modal[data-dynamic]').forEach(el => {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  });
+  if (typeof proxmoxActive !== 'undefined') proxmoxActive = false;
+}
+window.addEventListener('beforeunload', zeroLeakCleanup);
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) zeroLeakCleanup();
+});
+</script>
+<script>
+// --- Leak Prevention: Cancel async operations and timeouts on unload ---
+let proxmoxActive = true;
+window.addEventListener('beforeunload', () => { proxmoxActive = false; });
+// Example usage for fetch:
+// fetch('/vm_status').then(resp => { if (!proxmoxActive) return; /* handle resp */ });
+// For timeouts, store references and clear them on unload if needed.
+</script>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -775,7 +796,8 @@ function fetchStatus() {
 // Initialize everything when page loads
 setInitialButtonStates();
 fetchStatus();
-setInterval(fetchStatus, 3000);
+let fetchStatusInterval = setInterval(fetchStatus, 3000);
+window.addEventListener('beforeunload', () => { clearInterval(fetchStatusInterval); });
 </script>
 <script>
   // notify parent of activity to reset screensaver

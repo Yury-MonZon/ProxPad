@@ -1,4 +1,25 @@
 <!DOCTYPE html>
+<script>
+function zeroLeakCleanup() {
+    document.querySelectorAll('style[data-dynamic], link[data-dynamic], script[data-dynamic], button[data-dynamic], li[data-dynamic], .overlay[data-dynamic], .modal[data-dynamic]').forEach(el => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    if (typeof mediaActive !== 'undefined') mediaActive = false;
+}
+window.addEventListener('beforeunload', zeroLeakCleanup);
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) zeroLeakCleanup();
+});
+</script>
+<script>
+// --- Leak Prevention: Cancel async operations and timeouts on unload ---
+let mediaActive = true;
+window.addEventListener('beforeunload', () => { mediaActive = false; });
+// Example usage for fetch:
+// fetch(`/media_control/${action}`, {...}).then(resp => { if (!mediaActive) return; /* handle resp */ });
+// For timeouts, store references and clear them on unload if needed.
+</script>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
