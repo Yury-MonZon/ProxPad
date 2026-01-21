@@ -163,12 +163,12 @@ if hasattr(config, 'PROXMOX_TOKEN_SECRET') and config.PROXMOX_TOKEN_SECRET:
     connection_success, connection_message = initialize_proxmox_connection()
     if connection_success:
         PROXMOX_ENABLED = True
-        app.logger.info("� ProxPad initialization completed successfully")
+        app.logger.info("✅ ProxPad initialization completed successfully")
     else:
         app.logger.critical(f"💥 Proxmox disabled: {connection_message}")
         print(f"❌ Proxmox disabled: {connection_message}")
 else:
-    app.logger.info("Proxmox token secret is empty: Proxmox features disabled.")
+    app.logger.info("❌ Proxmox token secret is empty: Proxmox features disabled.")
 
 # Configuration constants
 

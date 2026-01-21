@@ -967,7 +967,7 @@ class MacroHandler:
             self.logger.info("Supported commands:")
             self.logger.info("  🎵 Media: key:play, key:next, key:previous, key:volume_up, key:volume_down, key:mute")
             self.logger.info("  ⌨️ Keys: key:a-z, key:0-9, key:f1-f20, key:enter, key:space, key:tab, etc.")
-            self.logger.info("  � Combos: key:ctrl+c, key:alt+tab, key:shift+f10, key:ctrl+alt+delete")
+            self.logger.info("  🔣 Combos: key:ctrl+c, key:alt+tab, key:shift+f10, key:ctrl+alt+delete")
             self.logger.info("  🔤 Text: type:Hello World!, type:password123, etc.")
             self.logger.info("  ⏳ Delay: delay:0.5 (seconds)")
             self.logger.info("  🏃 Navigation: key:up, key:down, key:left, key:right, key:home, key:end")
