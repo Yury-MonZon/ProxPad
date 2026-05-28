@@ -6,6 +6,7 @@
     <link rel="icon" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/icons/keyboard.svg" type="image/svg+xml">
     <!-- Use Bootstrap core CSS and JS for tab navigation -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         /* ...existing CSS... */
     </style>
@@ -290,7 +291,67 @@
                 height: calc(var(--vh, 1vh) * 100);
                 border: none;
             }
-        }        /* Loading indicator */
+        }        /* Popup notification overlay */
+        #popup-container {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .popup-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.55);
+            pointer-events: auto;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .popup-overlay.visible {
+            opacity: 1;
+        }
+        .popup-overlay.hiding {
+            opacity: 0;
+        }
+        .popup-card {
+            background: var(--surface-primary);
+            border: 1px solid var(--surface-border);
+            border-radius: 20px;
+            padding: 36px 40px;
+            max-width: 85%;
+            text-align: center;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        .popup-icon {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+        }
+        .popup-icon.bi {
+            font-size: 64px;
+            color: var(--text-primary);
+        }
+        .popup-text {
+            font-size: 20px;
+            color: var(--text-primary);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .popup-hint {
+            font-size: 13px;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        /* Loading indicator */
         .loading {
             display: flex;
             align-items: center;
@@ -357,6 +418,9 @@
     <div id="screensaver" aria-hidden="true" role="dialog" tabindex="-1">
         <div id="screensaver-clock" aria-label="Screensaver clock" role="button" tabindex="0"></div>
     </div>
+
+    <!-- Popup notification container -->
+    <div id="popup-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -671,6 +735,138 @@
             // Keep timers accurate when viewport changes
             window.addEventListener('resize', ()=>{ if (screensaver.classList.contains('active')) moveClock(); });
         })();
+    </script>
+    <script>
+    (function(){
+        const POLL_MS = 2000;
+        const DISMISS_MS = 10000;
+        let popupQueue = [];
+        let popupActive = false;
+        let pollInterval = null;
+        let popupTimers = {};
+
+        function isUrl(s) {
+            return /^(https?:\/\/|\/)/.test(s) || /\.(png|jpg|jpeg|gif|svg|webp)(\?|$)/i.test(s);
+        }
+
+        function createPopupEl(popup) {
+            const overlay = document.createElement('div');
+            overlay.className = 'popup-overlay';
+            overlay.setAttribute('data-popup-id', popup.id);
+
+            const card = document.createElement('div');
+            card.className = 'popup-card';
+
+            const icon = popup.icon || 'info-circle';
+            if (isUrl(icon)) {
+                const img = document.createElement('img');
+                img.className = 'popup-icon';
+                img.src = icon;
+                img.alt = '';
+                card.appendChild(img);
+            } else {
+                const i = document.createElement('i');
+                i.className = 'popup-icon bi bi-' + icon;
+                card.appendChild(i);
+            }
+
+            const text = document.createElement('div');
+            text.className = 'popup-text';
+            text.textContent = popup.text;
+            card.appendChild(text);
+
+            if (popup.keep) {
+                const hint = document.createElement('div');
+                hint.className = 'popup-hint';
+                hint.textContent = 'tap to dismiss';
+                card.appendChild(hint);
+            }
+
+            overlay.appendChild(card);
+
+            overlay.addEventListener('click', function() {
+                dismissPopup(popup.id);
+            });
+
+            return overlay;
+        }
+
+        function showNextPopup() {
+            if (popupActive || popupQueue.length === 0) return;
+            popupActive = true;
+            const popup = popupQueue.shift();
+            const container = document.getElementById('popup-container');
+            if (!container) { popupActive = false; return; }
+            const el = createPopupEl(popup);
+            container.appendChild(el);
+            el.offsetHeight;
+            el.classList.add('visible');
+            if (!popup.keep) {
+                popupTimers[popup.id] = setTimeout(function() {
+                    dismissPopup(popup.id);
+                }, DISMISS_MS);
+            }
+        }
+
+        function dismissPopup(id) {
+            const container = document.getElementById('popup-container');
+            if (!container) return;
+            const el = container.querySelector('[data-popup-id="' + id + '"]');
+            if (!el) return;
+            if (popupTimers[id]) {
+                clearTimeout(popupTimers[id]);
+                delete popupTimers[id];
+            }
+            el.classList.remove('visible');
+            el.classList.add('hiding');
+            setTimeout(function() {
+                if (el.parentNode) el.parentNode.removeChild(el);
+                popupActive = false;
+                showNextPopup();
+            }, 300);
+        }
+
+        function pollPopups() {
+            fetch('/api/popup/poll')
+                .then(function(r) { return r.json(); })
+                .then(function(popups) {
+                    if (!popups || popups.length === 0) return;
+                    for (var i = 0; i < popups.length; i++) {
+                        popupQueue.push(popups[i]);
+                    }
+                    showNextPopup();
+                })
+                .catch(function() {});
+        }
+
+        function startPolling() {
+            if (pollInterval) return;
+            pollInterval = setInterval(pollPopups, POLL_MS);
+        }
+
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            Object.keys(popupTimers).forEach(function(id) {
+                clearTimeout(popupTimers[id]);
+                delete popupTimers[id];
+            });
+            popupQueue = [];
+            popupActive = false;
+            var container = document.getElementById('popup-container');
+            if (container) container.innerHTML = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', startPolling);
+
+        window.addEventListener('beforeunload', stopPolling);
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) stopPolling();
+            else startPolling();
+        });
+    })();
     </script>
 </body>
 </html>

@@ -170,6 +170,9 @@ if hasattr(config, 'PROXMOX_TOKEN_SECRET') and config.PROXMOX_TOKEN_SECRET:
 else:
     app.logger.info("❌ Proxmox token secret is empty: Proxmox features disabled.")
 
+# In-memory queue for popup notifications
+_pending_popups: List[Dict[str, Any]] = []
+
 # Configuration constants
 
 VM_IDS = config.VM_IDS
@@ -625,6 +628,61 @@ def vm_status():
             'message': str(e)
         }), 500
 
+@app.route('/api/popup', methods=['POST'])
+def show_popup():
+    """Queue a popup notification for display on the web interface.
+    
+    Accepts JSON:
+        text (str): Message to display (required)
+        icon (str): Bootstrap icon name or image URL (default: 'info-circle')
+        keep (bool): If true, stays until user taps (default: false, auto-dismiss 10s)
+    
+    Returns:
+        JSON response with success status
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        text = data.get('text')
+        if not text:
+            return jsonify({'success': False, 'error': 'Missing text'}), 400
+        
+        popup = {
+            'id': str(int(time.time() * 1000)),
+            'text': text,
+            'icon': data.get('icon', 'info-circle'),
+            'keep': data.get('keep', False)
+        }
+        _pending_popups.append(popup)
+        
+        app.logger.info(f"🪟 Popup queued: {text[:60]}")
+        return jsonify({'success': True, 'id': popup['id']})
+        
+    except Exception as e:
+        app.logger.error(f"❌ Popup error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/popup/poll')
+def poll_popups():
+    """Return and clear all pending popup notifications.
+    
+    Returns:
+        JSON array of pending popup objects
+    """
+    global _pending_popups
+    try:
+        popups = list(_pending_popups)
+        _pending_popups.clear()
+        resp = jsonify(popups)
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp.headers['Pragma'] = 'no-cache'
+        return resp
+    except Exception as e:
+        app.logger.error(f"❌ Popup poll error: {e}")
+        return jsonify([]), 200
+
 if __name__ == '__main__':
     """Main application entry point for server."""
     app.logger.info("🚀 Starting ProxPad server")
@@ -634,6 +692,8 @@ if __name__ == '__main__':
     app.logger.info("   - /macro1 : Macro control interface")
     app.logger.info("   - /vm_status : VM status API")
     app.logger.info("   - /api/run_macro : Macro execution API")
+    app.logger.info("   - /api/popup : Popup notification API")
+    app.logger.info("   - /api/popup/poll : Popup poll endpoint")
     app.logger.info("🌐 Server starting on http://0.0.0.0:5000")
     
     try:
