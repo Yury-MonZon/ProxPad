@@ -129,6 +129,62 @@ Create powerful macros with these commands:
 
 ---
 
+## 🔔 Popup Notifications - Send Alerts to Your Display
+
+Send on-screen popup messages to the ProxPad web interface with text, icons, and optional persistent display.
+
+### **SSH Script** (`proxpad-popup.sh`)
+
+```bash
+# Basic popup, auto-dismiss after 10s
+proxpad-popup.sh -t "Backup complete"
+
+# Persistent popup with custom icon
+proxpad-popup.sh -t "VM started" -i play-circle-fill -k
+
+# Image URL as icon
+proxpad-popup.sh -t "Alert!" -i "https://example.com/warning.png" -k
+
+# From another machine via SSH
+ssh user@proxpad-host ./proxpad-popup.sh -t "Server is down!" -i exclamation-triangle -k
+
+# Custom host
+proxpad-popup.sh -t "Hello" -u 192.168.1.100
+```
+
+### **Options**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-t TEXT` | Message text (supports HTML: `<b>`, `<br>`, etc.) | required |
+| `-i ICON` | Bootstrap icon name or image URL | `info-circle` |
+| `-k` | Keep popup until user taps (otherwise auto-dismiss after 10s) | off |
+| `-u HOST` | ProxPad server host/IP | `localhost` |
+
+### **Python API**
+
+```python
+def send_popup(text, icon="info-circle", keep=False, host="192.168.1.250", port=5000):
+    import json, urllib.request
+    data = json.dumps({"text": text, "icon": icon, "keep": keep}).encode()
+    req = urllib.request.Request(f"http://{host}:{port}/api/popup", data=data,
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read())
+
+send_popup("Backup done", "check-circle", keep=True)
+```
+
+### **Pre-made Scripts**
+
+```bash
+./send_tg_msg.sh "New message from Telegram"       # telegram icon
+./send_warning_msg.sh "Something went wrong!"        # warning icon
+./send_slack_msg.sh "Deploy complete"               # slack icon
+```
+
+---
+
 ## 🐧 Linux Support - The uinput Advantage!
 
 **Why uinput is useful:**
