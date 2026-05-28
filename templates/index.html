@@ -772,7 +772,7 @@
 
             const text = document.createElement('div');
             text.className = 'popup-text';
-            text.textContent = popup.text;
+            text.innerHTML = popup.text;
             card.appendChild(text);
 
             if (popup.keep) {
