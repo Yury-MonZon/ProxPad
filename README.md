@@ -131,6 +131,8 @@ Create powerful macros with these commands:
 
 ## 🔔 Popup Notifications - Send Alerts to Your Display
 
+![Notification](images/popup.png)
+
 Send on-screen popup messages to the ProxPad web interface with text, icons, and optional persistent display.
 
 ### **SSH Script** (`proxpad-popup.sh`)
