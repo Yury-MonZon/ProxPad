@@ -645,6 +645,7 @@ function sendCommand(vmid, action) {
   fetch('/vm/' + vmid + '/' + action, { method: 'POST' })
     .then(res => res.json())
     .then(data => {
+      if (!proxmoxActive) return;
       if (data.status === 'success') {
         showVMOutput(`Command sent to VM ${data.vmid}: ${data.action}`, true);
         // no local UI changes here; /vm_status will update the controls
@@ -653,10 +654,12 @@ function sendCommand(vmid, action) {
       }
     })
     .catch(err => {
+      if (!proxmoxActive) return;
   showVMOutput('Error: ' + err, false);
     });
 }
 function updateVMStatus(statuses) {
+  if (!proxmoxActive) return;
   statuses.forEach(vm => {
     const vmBlock = document.getElementById('vm-' + vm.vmid);
     // Update status text in the vmstatus div
@@ -758,6 +761,7 @@ function setInitialButtonStates() {
   });
 }
 function fetchStatus() {
+  if (!proxmoxActive) return;
   fetch('/vm_status')
     .then(res => {
       if (!res.ok) throw new Error('Network response was not ok');
@@ -796,8 +800,14 @@ function fetchStatus() {
 // Initialize everything when page loads
 setInitialButtonStates();
 fetchStatus();
-let fetchStatusInterval = setInterval(fetchStatus, 3000);
-window.addEventListener('beforeunload', () => { clearInterval(fetchStatusInterval); });
+const intervals = [setInterval(fetchStatus, 3000)];
+window.addEventListener('beforeunload', () => { intervals.forEach(clearInterval); });
+window.addEventListener('message', e => {
+    if (e.data === 'proxpad-pause') {
+        proxmoxActive = false;
+        intervals.forEach(clearInterval);
+    }
+});
 </script>
 <script>
   // notify parent of activity to reset screensaver

@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
 <script>
 function zeroLeakCleanup() {
     document.querySelectorAll('style[data-dynamic], link[data-dynamic], script[data-dynamic], button[data-dynamic], li[data-dynamic], .overlay[data-dynamic], .modal[data-dynamic]').forEach(el => {
@@ -9,6 +11,7 @@ function zeroLeakCleanup() {
 window.addEventListener('beforeunload', zeroLeakCleanup);
 document.addEventListener('visibilitychange', function() {
     if (document.hidden) zeroLeakCleanup();
+    else macroActive = true;
 });
 </script>
 <script>
@@ -19,9 +22,6 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
 // fetch('/api/run_macro', {...}).then(resp => { if (!macroActive) return; /* handle resp */ });
 // For timeouts, store references and clear them on unload if needed.
 </script>
-<!DOCTYPE html>
-<html lang="en">
-<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Macro Commands - Page {{ page_num }}</title>
@@ -307,6 +307,8 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
             button.classList.add('running');
             button.classList.remove('success', 'error');
 
+            var safetyTimer = setTimeout(function() { button.classList.remove('running'); }, 1000);
+
             fetch('/api/run_macro', {
                 method: 'POST',
                 headers: {
@@ -316,7 +318,9 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
             })
             .then(response => response.json())
             .then(data => {
+                clearTimeout(safetyTimer);
                 button.classList.remove('running');
+                if (!macroActive) return;
                 
                 if (data.success) {
                     button.classList.add('success');
@@ -331,7 +335,9 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
                 try{ if (data && data.screensaver) parent.postMessage('proxpad-screensaver', '*'); }catch(e){}
             })
             .catch(error => {
+                clearTimeout(safetyTimer);
                 button.classList.remove('running');
+                if (!macroActive) return;
                 button.classList.add('error');
                 setTimeout(() => button.classList.remove('error'), 3000);
                 
@@ -372,6 +378,7 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.macro-button').forEach(button => {
                 button.addEventListener('click', function() {
+                    macroActive = true;
                     const command = this.getAttribute('data-command');
                     const needsConfirm = this.getAttribute('data-confirm') === 'true';
                     runMacro(command, this, needsConfirm);
@@ -396,6 +403,14 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
         setViewportHeight();
         window.addEventListener('resize', setViewportHeight);
         window.addEventListener('orientationchange', setViewportHeight);
+    window.addEventListener('message', e => {
+        if (e.data === 'proxpad-pause') {
+            macroActive = false;
+        }
+        if (e.data === 'proxpad-resume') {
+            macroActive = true;
+        }
+    });
     </script>
     <script>
         // notify parent of activity to reset screensaver

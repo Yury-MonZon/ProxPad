@@ -333,6 +333,7 @@ class MacroHandler:
             return True
         except Exception as e:
             self.logger.error(f"❌ Error launching program '{exe_str}': {e}")
+            return False
     
     def execute_key_command(self, key_str):
         """Execute keyboard command - supports single keys and combinations.

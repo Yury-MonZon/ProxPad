@@ -496,6 +496,11 @@ def run_macro():
         if command.startswith(('key:', 'exe:', 'url:', 'type:')):
             return _execute_broadcast_macro(command)
         
+        return jsonify({
+            'success': False,
+            'error': f'Unrecognized command format: {command}'
+        }), 400
+        
     except Exception as e:
         app.logger.error(f"❌ Macro execution error: {e}")
         return jsonify({

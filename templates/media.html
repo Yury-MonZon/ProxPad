@@ -60,7 +60,7 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
             height: 100vh;
             height: 100dvh;
             width: 100vw;
-            background: var(--primary-bg);
+            background: var(--bg-primary);
             color: var(--text-primary);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
@@ -374,6 +374,7 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
             })
             .then(response => response.json())
             .then(data => {
+                if (!mediaActive) return;
                 if (data.success) {
                     showMediaOutput(`Media ${action} command sent successfully`, true);
                 } else {
@@ -381,6 +382,7 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
                 }
             })
             .catch(error => {
+                if (!mediaActive) return;
                 showMediaOutput('Error: ' + error, false);
             });
         }
@@ -393,6 +395,7 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
             })
             .then(response => response.json())
             .then(data => {
+                if (!mediaActive) return;
                 if (data.success) {
                     showMediaOutput(`Music player ${data.player} launched successfully`, true);
                 } else {
@@ -400,9 +403,17 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
                 }
             })
             .catch(error => {
+                if (!mediaActive) return;
                 showMediaOutput('Error: ' + error, false);
             });
         }
+    </script>
+    <script>
+    window.addEventListener('message', e => {
+        if (e.data === 'proxpad-pause') {
+            mediaActive = false;
+        }
+    });
     </script>
     <script>
         // notify parent of activity to reset screensaver
