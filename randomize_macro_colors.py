@@ -25,7 +25,7 @@ PALETTE = [
     "#d0f4de", "#e6e6ff", "#f0d9ff", "#cdd6f4",
 ]
 
-SIMILARITY_THRESHOLD = 75.0
+SIMILARITY_THRESHOLD = 70.0
 
 ROWS_RE = re.compile(r'^\s*rows\s*=\s*(\d+)\s*$', re.MULTILINE)
 COLS_RE = re.compile(r'^\s*cols\s*=\s*(\d+)\s*$', re.MULTILINE)
@@ -161,7 +161,7 @@ def _find_page_macros(text: str):
     characters inside strings.
     """
     matches = []
-    name_re = re.compile(r"(?P<name>PAGE\d+_MACROS)\s*=", re.MULTILINE)
+    name_re = re.compile(r"^(?P<name>PAGE\d+_MACROS)\s*=", re.MULTILINE)
     for m in name_re.finditer(text):
         name = m.group('name')
         # find first '[' after the match
