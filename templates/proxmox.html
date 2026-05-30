@@ -252,10 +252,12 @@ window.addEventListener('beforeunload', () => { proxmoxActive = false; });
    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
     box-shadow: 0 3px 10px rgba(0,0,0,0.4);
   }
-  button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
-    filter: brightness(1.15);
+  @media (hover: hover) {
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+      filter: brightness(1.15);
+    }
   }
   button:active {
     transform: translateY(-1px);
@@ -575,7 +577,7 @@ function showVMOutput(msg, success=true) {
   outputDiv.style.borderColor = success ? '#1a5a2a' : '#8f252e';
   setTimeout(() => {
     outputDiv.classList.remove('show');
-  }, 5000);
+  }, 2000);
 }
 function closeVMOutput() {
   document.getElementById('vmOutput').classList.remove('show');

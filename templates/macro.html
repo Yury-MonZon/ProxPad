@@ -104,11 +104,18 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
             padding-right: 0px !important;
         }
 
-        .macro-button:hover {
-            background: var(--surface-secondary);
-            border-color: var(--accent-color);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 255, 136, 0.2);
+        @media (hover: hover) {
+            .macro-button:hover {
+                background: var(--surface-secondary);
+                border-color: var(--accent-color);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px rgba(0, 255, 136, 0.2);
+            }
+        }
+
+        .macro-button:active {
+            transform: scale(0.93);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
         }
 
         .macro-button.running {
@@ -362,12 +369,10 @@ window.addEventListener('beforeunload', () => { macroActive = false; });
             contentPre.textContent = output;
             outputDiv.classList.add('show');
             
-            // Auto-hide after 10 seconds if successful
-            if (data.success) {
-                setTimeout(() => {
-                    outputDiv.classList.remove('show');
-                }, 10000);
-            }
+            // Auto-hide after 2 seconds
+            setTimeout(() => {
+                outputDiv.classList.remove('show');
+            }, 2000);
         }
 
         function closeMacroOutput() {

@@ -112,10 +112,12 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
             padding-right: 2px !important;
         }
 
-        .control-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.5);
-            filter: brightness(1.15);
+        @media (hover: hover) {
+            .control-btn:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+                filter: brightness(1.15);
+            }
         }
 
         .control-btn:active {
@@ -360,7 +362,7 @@ window.addEventListener('beforeunload', () => { mediaActive = false; });
             outputDiv.style.borderColor = success ? '#a6e3a1' : '#f38ba8';
             setTimeout(() => {
                 outputDiv.classList.remove('show');
-            }, 5000);
+            }, 2000);
         }
         function closeMediaOutput() {
             document.getElementById('mediaOutput').classList.remove('show');

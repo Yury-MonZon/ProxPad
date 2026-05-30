@@ -617,10 +617,10 @@
                 // Allow events that originate on the screensaver overlay itself so overlay handlers can run.
                 try {
                     if (e.target && e.target.closest && e.target.closest('#screensaver')) return;
-                    // Allow popup notifications through so they remain dismissable, but
-                    // stop propagation so they don't wake the screensaver via global listeners.
+                    // Allow popup notifications through so they remain fully dismissable.
+                    // The popup overlay's own touchstart/mousedown handler will stop propagation
+                    // so the global activity listener won't hide the screensaver.
                     if (e.target && e.target.closest && e.target.closest('#popup-container')) {
-                        e.stopPropagation();
                         return;
                     }
                 } catch(err) {}
@@ -804,6 +804,15 @@
 
             overlay.addEventListener('click', function() {
                 dismissPopup(popup.id);
+            });
+
+            // Prevent touch/mouse events on the popup from bubbling up to the
+            // screensaver's global activity listeners, so the screensaver stays active.
+            ['touchstart', 'touchend', 'mousedown', 'mouseup', 'mousemove',
+             'pointerdown', 'pointerup', 'pointermove'].forEach(function(evt) {
+                overlay.addEventListener(evt, function(e) {
+                    e.stopPropagation();
+                }, false);
             });
 
             return overlay;
