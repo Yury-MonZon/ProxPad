@@ -617,6 +617,12 @@
                 // Allow events that originate on the screensaver overlay itself so overlay handlers can run.
                 try {
                     if (e.target && e.target.closest && e.target.closest('#screensaver')) return;
+                    // Allow popup notifications through so they remain dismissable, but
+                    // stop propagation so they don't wake the screensaver via global listeners.
+                    if (e.target && e.target.closest && e.target.closest('#popup-container')) {
+                        e.stopPropagation();
+                        return;
+                    }
                 } catch(err) {}
                 e.stopPropagation();
                 e.preventDefault();
