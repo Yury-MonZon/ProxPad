@@ -129,6 +129,34 @@ Create powerful macros with these commands:
 
 ---
 
+## 🎨 Color Editor - Customize Your Macro Buttons
+
+![Color Editor](images/color_editor.png)
+
+ProxPad includes a standalone color editor (`color_editor.py`) for customizing macro button colors with a live preview.
+
+### **Quick Start**
+```bash
+python color_editor.py
+# Visit: http://localhost:9999
+```
+
+### **Features**
+- **Live Preview**: Colors update in real-time, no Apply button needed
+- **Custom Color Picker**: Built from scratch — no external dependencies
+  - Saturation/Value square
+  - Hue rainbow slider
+  - R/G/B sliders with numeric input
+  - Hex input with live sync
+- **Randomize**: Per-button random color (bright, saturated range)
+- **Save to Config**: Writes changes directly back to `config.py` with proper formatting
+
+### **How It Works**
+- Reads `config.py` in the same directory and extracts all `PAGE#_MACROS`, `PAGE#_MACRO_ROWS`, and `PAGE#_MACRO_COLS` definitions
+- Each page renders as a grid of buttons matching your configured rows × columns
+- Click a button to open the per-cell color picker
+- "Save to Config"
+
 ## 🔔 Popup Notifications - Send Alerts to Your Display
 
 ![Notification](images/popup.png)
