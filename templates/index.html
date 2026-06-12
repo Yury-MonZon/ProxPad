@@ -351,6 +351,7 @@
             color: var(--text-secondary);
             opacity: 0.7;
         }
+        .popup-overlay.transient { z-index: 2; }
         /* Loading indicator */
         .loading {
             display: flex;
@@ -755,9 +756,11 @@
     <script>
     (function(){
         const POLL_MS = 2000;
-        const DISMISS_MS = 10000;
-        let popupQueue = [];
-        let popupActive = false;
+        const DISMISS_MS = 2000;
+        let keepQueue = [];
+        let transientQueue = [];
+        let keepActive = false;
+        let transientActive = false;
         let pollInterval = null;
         let popupTimers = {};
         window.active = true;
@@ -767,9 +770,10 @@
             return /^(https?:\/\/|\/)/.test(s) || /\.(png|jpg|jpeg|gif|svg|webp)(\?|$)/i.test(s);
         }
 
-        function createPopupEl(popup) {
+        function createPopupEl(popup, extraClass) {
             const overlay = document.createElement('div');
             overlay.className = 'popup-overlay';
+            if (extraClass) overlay.classList.add(extraClass);
             overlay.setAttribute('data-popup-id', popup.id);
 
             const card = document.createElement('div');
@@ -818,21 +822,39 @@
             return overlay;
         }
 
-        function showNextPopup() {
-            if (popupActive || popupQueue.length === 0) return;
-            popupActive = true;
-            const popup = popupQueue.shift();
+        function processQueues() {
+            if (transientQueue.length > 0 && !transientActive) {
+                showNextTransient();
+            } else if (keepQueue.length > 0 && !keepActive) {
+                showNextKeep();
+            }
+        }
+
+        function showNextKeep() {
+            if (keepActive || keepQueue.length === 0) return;
+            keepActive = true;
+            const popup = keepQueue.shift();
             const container = document.getElementById('popup-container');
-            if (!container) { popupActive = false; return; }
+            if (!container) { keepActive = false; return; }
             const el = createPopupEl(popup);
             container.appendChild(el);
             el.offsetHeight;
             el.classList.add('visible');
-            if (!popup.keep) {
-                popupTimers[popup.id] = setTimeout(function() {
-                    dismissPopup(popup.id);
-                }, DISMISS_MS);
-            }
+        }
+
+        function showNextTransient() {
+            if (transientActive || transientQueue.length === 0) return;
+            transientActive = true;
+            const popup = transientQueue.shift();
+            const container = document.getElementById('popup-container');
+            if (!container) { transientActive = false; return; }
+            const el = createPopupEl(popup, 'transient');
+            container.appendChild(el);
+            el.offsetHeight;
+            el.classList.add('visible');
+            popupTimers[popup.id] = setTimeout(function() {
+                dismissPopup(popup.id);
+            }, DISMISS_MS);
         }
 
         function dismissPopup(id) {
@@ -848,8 +870,12 @@
             el.classList.add('hiding');
             setTimeout(function() {
                 if (el.parentNode) el.parentNode.removeChild(el);
-                popupActive = false;
-                showNextPopup();
+                if (el.classList.contains('transient')) {
+                    transientActive = false;
+                } else {
+                    keepActive = false;
+                }
+                processQueues();
             }, 300);
         }
 
@@ -860,9 +886,13 @@
                     if (!window.active) return;
                     if (!popups || popups.length === 0) return;
                     for (var i = 0; i < popups.length; i++) {
-                        popupQueue.push(popups[i]);
+                        if (popups[i].keep) {
+                            keepQueue.push(popups[i]);
+                        } else {
+                            transientQueue.push(popups[i]);
+                        }
                     }
-                    showNextPopup();
+                    processQueues();
                 })
                 .catch(function() {});
         }
@@ -881,8 +911,10 @@
                 clearTimeout(popupTimers[id]);
                 delete popupTimers[id];
             });
-            popupQueue = [];
-            popupActive = false;
+            keepQueue = [];
+            transientQueue = [];
+            keepActive = false;
+            transientActive = false;
             var container = document.getElementById('popup-container');
             if (container) container.innerHTML = '';
         }
