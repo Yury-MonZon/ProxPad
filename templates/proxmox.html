@@ -8,7 +8,12 @@ function zeroLeakCleanup() {
 }
 window.addEventListener('beforeunload', zeroLeakCleanup);
 document.addEventListener('visibilitychange', function() {
-  if (document.hidden) zeroLeakCleanup();
+  if (document.hidden) {
+    zeroLeakCleanup();
+  } else {
+    proxmoxActive = true;
+    fetchStatus();
+  }
 });
 </script>
 <script>
