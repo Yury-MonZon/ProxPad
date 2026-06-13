@@ -486,8 +486,8 @@
                     if (style && style.parentNode) { style.parentNode.removeChild(style); }
                     // Only reload VM iframe
                     const iframe = targetPane.querySelector('.content-frame');
-                    if (iframe && iframe.src && iframe.getAttribute('src') === '/proxmox') {
-                        iframe.src = iframe.src;
+                    if (iframe && iframe.getAttribute('src') && iframe.getAttribute('src').startsWith('/proxmox')) {
+                        iframe.src = '/proxmox?_=' + Date.now();
                     }
                 });
             });
@@ -696,6 +696,10 @@
                     try { if (appContainer) appContainer.style.pointerEvents = ''; } catch(e){}
                     // reset clock color
                     try { clockEl.style.color = ''; } catch(e){}
+                    // resume all iframes in case they were throttled during screensaver
+                    document.querySelectorAll('.content-frame').forEach(iframe => {
+                        try { iframe.contentWindow.postMessage('proxpad-resume', '*'); } catch(e) {}
+                    });
                 }, postHideCooldown);
             }
 
@@ -812,7 +816,7 @@
 
             // Prevent touch/mouse events on the popup from bubbling up to the
             // screensaver's global activity listeners, so the screensaver stays active.
-            ['touchstart', 'touchend', 'mousedown', 'mouseup', 'mousemove',
+            ['click', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'mousemove',
              'pointerdown', 'pointerup', 'pointermove'].forEach(function(evt) {
                 overlay.addEventListener(evt, function(e) {
                     e.stopPropagation();

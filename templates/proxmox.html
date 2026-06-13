@@ -814,6 +814,13 @@ window.addEventListener('message', e => {
         proxmoxActive = false;
         intervals.forEach(clearInterval);
     }
+    if (e.data === 'proxpad-resume') {
+        proxmoxActive = true;
+        intervals.forEach(clearInterval);
+        intervals.length = 0;
+        intervals.push(setInterval(fetchStatus, 3000));
+        fetchStatus();
+    }
 });
 </script>
 <script>
